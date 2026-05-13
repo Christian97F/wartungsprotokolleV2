@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Offline-PWA für Notstromaggregat-Wartungsprotokolle">
+
+  <!-- PWA-Metadaten -->
+  <meta name="theme-color" content="#e8b84b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Wartung">
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192-v2.png">
+  <title>Notstrom Wartung</title>
+
+  <!-- CSS – Reihenfolge wichtig: Variablen zuerst -->
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+
+<!-- ============================================================
+     APP-RAHMEN
+     Alle Screens befinden sich hier drin. Immer nur einer
+     ist per .active-Klasse sichtbar.
+     ============================================================ -->
+<div id="app">
+
+  <!-- ── Kopfleiste ──────────────────────────────────────────── -->
+  <header class="app-header">
+    <!-- Zurück-Button (nur im Konfigurator und Protokoll) -->
+    <button class="header-back-btn" id="btn-back" aria-label="Zurück">←</button>
+
+    <h1 id="screen-title"><span id="screen-title-text">⚡ Notstrom Wartung</span> <span class="mode-badge" id="mode-badge"></span></h1>
+    <button class="theme-toggle" id="btn-theme" aria-label="Farbschema umschalten" title="Hell/Dunkel">🌙</button>
+
+    <!-- Kontextabhängige Aktionen (je nach Screen) -->
+    <div class="header-actions">
+
+      <!-- Home-Aktionen -->
+      <div id="header-actions-home" style="display:none">
+        <!-- (leer, FAB-Button wird genutzt) -->
+      </div>
+
+      <!-- Konfigurator-Aktionen -->
+      <div id="header-actions-konfig" style="display:none">
+        <button class="btn btn-primary btn-sm" id="btn-kfg-speichern">💾 Speichern</button>
+        <button class="btn btn-ghost btn-sm"   id="btn-kfg-exportieren">↓ Export</button>
+        <button class="btn btn-danger btn-sm"  id="btn-kfg-loeschen">🗑</button>
+      </div>
+
+      <!-- Protokoll-Aktionen -->
+      <div id="header-actions-protokoll" style="display:none">
+        <button class="btn btn-ghost btn-sm"   id="btn-prot-config">⚙ Konfiguration</button>
+        <button class="btn btn-ghost btn-sm"   id="btn-prot-entwurf">Entwurf</button>
+        <button class="btn btn-primary btn-sm" id="btn-prot-abschliessen">✓ Abschließen</button>
+        <button class="btn btn-ghost btn-sm"   id="btn-prot-exportieren">↓</button>
+      </div>
+
+      <!-- Einträge-Aktionen -->
+      <div id="header-actions-eintraege" style="display:none">
+        <button class="btn btn-ghost btn-sm" id="btn-alle-prot-export">↓ Alle</button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── Screens ─────────────────────────────────────────────── -->
+  <main class="screen-container">
+
+    <!-- ====================================================
+         SCREEN 1: HOME – Aggregat-Übersicht
+         ==================================================== -->
+    <section id="screen-home" class="screen">
+
+      <!-- Suchfeld -->
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="home-suche" placeholder="Aggregat suchen…" autocomplete="off">
+      </div>
+
+      <!-- Aggregat-Liste (wird per JS befüllt) -->
+      <div id="home-aggregat-liste">
+        <p class="loading-hint">Lade…</p>
+      </div>
+
+      <!-- Hinweis wenn noch keine Aggregate vorhanden -->
+      <div id="home-leer-hinweis" style="display:none; text-align:center; padding: 40px 20px;">
+        <div style="font-size:3rem; margin-bottom:16px">⚡</div>
+        <h2 style="margin-bottom:8px">Noch keine Aggregate</h2>
+        <p class="text-muted" style="margin-bottom:24px">
+          Klicke auf „+" um ein Aggregat anzulegen,<br>
+          oder importiere eine Konfiguration über „Import / Export".
+        </p>
+        <button class="btn btn-primary" id="btn-neu-aggregat-leer">+ Neues Aggregat</button>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         SCREEN 2: KONFIGURATOR – Aggregat konfigurieren
+         ==================================================== -->
+    <section id="screen-konfigurator" class="screen">
+
+      <!-- Tab-Leiste -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tab-stammdaten">Stammdaten</button>
+        <button class="tab-btn"        data-tab="tab-technisch">Techn. Daten</button>
+        <button class="tab-btn"        data-tab="tab-intervalle">Intervalle</button>
+        <button class="tab-btn"        data-tab="tab-protokoll">Protokoll-Setup</button>
+      </div>
+
+      <!-- Tab-Inhalte (werden per JS befüllt) -->
+      <div id="tab-stammdaten" class="tab-panel active"></div>
+      <div id="tab-technisch"  class="tab-panel"></div>
+      <div id="tab-intervalle" class="tab-panel"></div>
+      <div id="tab-protokoll"  class="tab-panel"></div>
+
+      <!-- Speichern-Button unten (Duplikat für lange Seiten) -->
+      <div style="padding: var(--space-md) 0; display:flex; gap:var(--space-sm)">
+        <button class="btn btn-primary btn-full" id="btn-kfg-speichern-unten">💾 Konfiguration speichern</button>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         SCREEN 3: PROTOKOLL – Wartungsprotokoll ausfüllen
+         ==================================================== -->
+    <section id="screen-protokoll" class="screen">
+
+      <!-- Formular-Inhalt (wird per JS dynamisch befüllt) -->
+      <div id="protokoll-form-body"></div>
+
+      <!-- Buttons unten (Duplikat für lange Formulare) -->
+      <div style="padding: var(--space-md) 0; display:flex; gap:var(--space-sm); flex-wrap:wrap">
+        <button class="btn btn-ghost btn-full"   id="btn-prot-entwurf-unten">💾 Als Entwurf speichern</button>
+        <button class="btn btn-primary btn-full" id="btn-prot-abschliessen-unten">✓ Protokoll abschließen</button>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         SCREEN 4: PROTOKOLL-EINTRÄGE – Ausgefüllte Protokolle
+         ==================================================== -->
+    <section id="screen-eintraege" class="screen">
+
+      <div id="eintraege-liste">
+        <p class="loading-hint">Lade…</p>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         SCREEN 5: IMPORT / EXPORT
+         ==================================================== -->
+    <section id="screen-io" class="screen">
+
+      <div class="io-section">
+        <h3>📥 Import – Aggregate</h3>
+        <p>
+          Importiere eine Aggregat-Konfiguration aus einer JSON-Datei.
+          Die Datei wird z.B. mit Google Drive oder per USB-Stick übertragen.
+          Bestehende Aggregate mit gleicher ID werden überschrieben.
+        </p>
+        <button class="btn btn-primary" id="btn-import-aggregat">
+          📂 Aggregat-Konfiguration importieren
+        </button>
+        <!-- Versteckter Datei-Input -->
+        <input type="file" id="input-import-aggregat" accept=".json" style="display:none">
+      </div>
+
+      <div class="io-section">
+        <h3>📥 Import – Protokolle</h3>
+        <p>
+          Importiere ein gespeichertes Wartungsprotokoll aus einer JSON-Datei.
+          Nützlich um Protokolle von einem Gerät auf ein anderes zu übertragen.
+        </p>
+        <button class="btn btn-primary" id="btn-import-protokoll">
+          📂 Protokoll importieren
+        </button>
+        <input type="file" id="input-import-protokoll" accept=".json" style="display:none">
+      </div>
+
+      <div class="io-section">
+        <h3>📤 Export – Alle Aggregate</h3>
+        <p>
+          Exportiert alle konfigurierten Aggregate als eine JSON-Datei.
+          Ideal als Backup oder zum Übertragen auf ein anderes Gerät.
+        </p>
+        <button class="btn btn-secondary" id="btn-export-alle-aggregat">
+          ↓ Alle Aggregate exportieren
+        </button>
+      </div>
+
+      <div class="io-section">
+        <h3>📤 Export – Alle Protokolle</h3>
+        <p>
+          Exportiert alle ausgefüllten Wartungsprotokolle als eine JSON-Datei.
+          Diese Datei kann dann in der Firma für die Protokoll-Erstellung genutzt werden.
+        </p>
+        <button class="btn btn-secondary" id="btn-export-alle-protokoll">
+          ↓ Alle Protokolle exportieren
+        </button>
+      </div>
+
+      <div class="io-section" style="border-color:var(--warning);background:var(--warning-faint)">
+        <h3 style="color:var(--warning)">ℹ️ Hinweise</h3>
+        <p style="color:var(--text-primary)">
+          <strong>Offline-Betrieb:</strong> Die App speichert alle Daten lokal im Browser (IndexedDB).
+          Es ist keine Internetverbindung nötig.<br><br>
+          <strong>Datei-Übertragung:</strong> JSON-Dateien können über Google Drive, OneDrive,
+          E-Mail oder USB-Stick übertragen werden.<br><br>
+          <strong>Browser-Daten:</strong> Wenn du den Browser-Cache leerst oder
+          „Alle Daten löschen" verwendest, gehen alle Daten verloren.
+          Exportiere regelmäßig als Backup!<br><br>
+          <strong>Installation:</strong> Die App kann über das Browser-Menü
+          „Zum Startbildschirm hinzufügen" / „App installieren" installiert werden.
+        </p>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ── Untere Navigation ────────────────────────────────────── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="screen-home">
+      <span class="nav-icon">⚡</span>
+      Aggregate
+    </button>
+    <button class="nav-btn" data-screen="screen-eintraege">
+      <span class="nav-icon">📁</span>
+      Protokolle
+    </button>
+    <button class="nav-btn" data-screen="screen-io">
+      <span class="nav-icon">⇅</span>
+      Import/Export
+    </button>
+  </nav>
+
+</div><!-- /#app -->
+
+<!-- ── FAB: Neues Aggregat ──────────────────────────────────── -->
+<button class="fab" id="btn-neu-aggregat" aria-label="Neues Aggregat anlegen"
+        title="Neues Aggregat anlegen">+</button>
+
+<!-- ── Bestätigungs-Dialog ─────────────────────────────────── -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div id="confirm-msg" style="white-space:pre-wrap;text-align:left;margin-bottom:var(--space-lg);line-height:1.6">Wirklich löschen?</div>
+    <div class="btn-group" id="confirm-buttons"></div>
+  </div>
+</div>
+
+<!-- ── JavaScript (ES-Module) ──────────────────────────────── -->
+<!-- type="module" ermöglicht import/export zwischen Dateien   -->
+<script type="module" src="./js/app.js"></script>
+
+<!-- Kleine Inline-Patches für doppelte Buttons unten in langen Screens -->
+<script type="module">
+  // Die "unten"-Duplikat-Buttons leiten einfach an die Header-Buttons weiter
+  document.addEventListener('DOMContentLoaded', () => {
+    const weiterleiten = (quellId, zielId) => {
+      document.getElementById(quellId)?.addEventListener('click', () => {
+        document.getElementById(zielId)?.click();
+      });
+    };
+    weiterleiten('btn-kfg-speichern-unten',    'btn-kfg-speichern');
+    weiterleiten('btn-prot-entwurf-unten',     'btn-prot-entwurf');
+    weiterleiten('btn-prot-abschliessen-unten','btn-prot-abschliessen');
+    weiterleiten('btn-neu-aggregat-leer',       'btn-neu-aggregat');
+  });
+</script>
+
+</body>
+</html>
