@@ -1,0 +1,534 @@
+/* ============================================================
+   Komponenten: Buttons, Formulare, Listen, Modals, Checklisten
+   ============================================================ */
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-base);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+
+.btn-primary   { background: var(--accent);         color: #000; }
+.btn-primary:hover { background: var(--accent-dim); }
+
+.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-danger    { background: var(--danger-faint);  color: var(--danger); border-color: var(--danger); }
+.btn-danger:hover  { background: var(--danger); color: #fff; }
+
+.btn-success   { background: var(--success-faint); color: var(--success); border-color: var(--success); }
+.btn-success:hover { background: var(--success); color: #fff; }
+
+.btn-ghost     { background: none; color: var(--text-secondary); border-color: var(--border); }
+.btn-ghost:hover   { color: var(--text-primary); border-color: var(--text-secondary); }
+
+.btn-sm  { padding: 5px 10px; font-size: 0.8rem; }
+.btn-lg  { padding: 12px 24px; font-size: 1rem; }
+.btn-full { width: 100%; }
+
+/* Gruppe von Buttons nebeneinander */
+.btn-group {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ── Formular-Felder ──────────────────────────────────────── */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-field input:not([type="checkbox"]),
+.form-field select,
+.form-field textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-base);
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  width: 100%;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+.form-field input:not([type="checkbox"]):focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-field input[type="number"] { font-family: var(--font-mono); }
+
+.form-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239090a8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+.form-field .field-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Einheit hinter Eingabefeld (z.B. "Monate", "kVA") */
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.input-with-unit input {
+  /* Eigenes Basis-Styling damit es auch außerhalb von .form-field funktioniert */
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  flex: 1;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.input-with-unit input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.input-with-unit .unit-label {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Checkbox / Toggle ────────────────────────────────────── */
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.form-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.form-check .check-label {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+/* ── Aggregat-Karte in der Liste ──────────────────────────── */
+.aggregat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  transition: border-color 0.15s;
+}
+.aggregat-card:hover { border-color: var(--accent); }
+
+.aggregat-card .agg-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.aggregat-card .agg-info { flex: 1; min-width: 0; }
+
+.aggregat-card .agg-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aggregat-card .agg-kommission {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.aggregat-card .agg-meta {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.aggregat-card .agg-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+/* ── Eintrags-Karte (ausgefüllte Protokolle) ──────────────── */
+.eintrag-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.eintrag-card .eintrag-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.eintrag-card .eintrag-title { flex: 1; font-weight: 600; }
+.eintrag-card .eintrag-meta  { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: var(--space-sm); }
+.eintrag-card .eintrag-actions { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* ── Checklisten-Tabelle (für Prüfpunkte im Protokoll) ────── */
+.check-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-sm);
+}
+
+.check-table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.check-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.check-table tr:last-child td { border-bottom: none; }
+
+.check-table .check-label-col { font-size: 0.88rem; }
+
+/* Drei-Zustand-Schalter: OK / Mangel / N.G. */
+.tri-state {
+  display: flex;
+  gap: 2px;
+}
+
+.tri-state input[type="radio"] { display: none; }
+
+.tri-state label {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tri-state input[value="ok"]:checked     + label { background: var(--success-faint); color: var(--success); border-color: var(--success); }
+.tri-state input[value="mangel"]:checked + label { background: var(--danger-faint);  color: var(--danger);  border-color: var(--danger); }
+.tri-state input[value="ng"]:checked     + label { background: var(--bg-elevated);   color: var(--text-secondary); border-color: var(--border); }
+
+/* ── Störmeldungen / Tags ─────────────────────────────────── */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+.tag .tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 2px;
+  line-height: 1;
+}
+.tag .tag-remove:hover { color: var(--danger); }
+
+.tag-input-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+.tag-input-row input { flex: 1; }
+
+/* ── Mängel-Liste (im Protokoll) ──────────────────────────── */
+.mangel-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-xs);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.mangel-item .mangel-info { flex: 1; font-size: 0.88rem; }
+.mangel-item .mangel-prio {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.mangel-prio-hoch    { background: var(--danger-faint);  color: var(--danger); }
+.mangel-prio-mittel  { background: var(--warning-faint); color: var(--warning); }
+.mangel-prio-niedrig { background: var(--info-faint);    color: var(--info); }
+
+/* ── Mode-Badge (Konfigurator / Protokoll-Unterscheidung) ── */
+.mode-badge {
+  display: none;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.mode-badge.visible {
+  display: inline-block;
+}
+:root[data-mode="protokoll"] .mode-badge {
+  background: var(--accent-faint);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+:root[data-mode="config"] .mode-badge {
+  background: var(--accent-config-faint);
+  color: var(--accent-config);
+  border: 1px solid var(--accent-config);
+}
+
+/* ── Modal / Overlay ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: flex-end;        /* Schiebt Modal von unten rein */
+  justify-content: center;
+  z-index: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-lg);
+  width: 100%;
+  max-width: 560px;
+  max-height: 80dvh;
+  overflow-y: auto;
+  transform: translateY(20px);
+  transition: transform 0.2s;
+}
+
+.modal-overlay.visible .modal-box {
+  transform: translateY(0);
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Bestätigungs-Dialog ──────────────────────────────────── */
+#confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+#confirm-overlay.visible { opacity: 1; pointer-events: all; }
+
+.confirm-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  max-width: 440px;
+  width: 90%;
+  max-height: 70dvh;
+  overflow-y: auto;
+  text-align: center;
+}
+.confirm-box #confirm-msg { margin-bottom: var(--space-lg); line-height: 1.5; }
+.confirm-box .btn-group { justify-content: center; }
+
+/* ── Import/Export-Seite ──────────────────────────────────── */
+.io-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.io-section h3 { margin-bottom: var(--space-sm); }
+.io-section p  { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: var(--space-md); line-height: 1.6; }
+
+/* ── Kühlkreis-Karte (mit Frostschutz-Checkbox) ───────────── */
+.kuehlkreis-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.kuehlkreis-item:last-child { border-bottom: none; }
+.kuehlkreis-item .kk-label   { flex: 1; font-size: 0.88rem; }
+.kuehlkreis-item .kk-checks  { display: flex; gap: var(--space-md); }
+
+/* ── Suchleiste ───────────────────────────────────────────── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: var(--space-md);
+}
+.search-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: var(--font-base);
+  outline: none;
+}
+.search-bar .search-icon { color: var(--text-muted); font-size: 1rem; }
+
+/* ── Protokoll-Ergebnis Buttons ───────────────────────────── */
+.ergebnis-group {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.ergebnis-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.ergebnis-btn.selected-ok       { border-color: var(--success); color: var(--success); background: var(--success-faint); }
+.ergebnis-btn.selected-behoben  { border-color: var(--warning); color: var(--warning); background: var(--warning-faint); }
+.ergebnis-btn.selected-offen    { border-color: var(--danger);  color: var(--danger);  background: var(--danger-faint); }
+
+/* ── Mobile: Ergebnis-Buttons + btn-group (iPhone ≤ 480px) ─── */
+@media (max-width: 480px) {
+  /* Ergebnis-Buttons (In Ordnung / Fehler behoben / Fehler offen) untereinander */
+  .ergebnis-btn {
+    flex: 0 0 100%;
+    min-width: unset;
+  }
+
+  /* Allgemeine Button-Gruppen: Buttons bei Bedarf untereinander */
+  .btn-group .btn {
+    flex: 1 1 auto;
+    min-width: 44%;
+  }
+
+  /* Einzelne breite Buttons immer volle Breite */
+  .btn-full {
+    flex: 0 0 100%;
+  }
+}

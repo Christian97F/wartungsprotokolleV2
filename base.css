@@ -1,0 +1,98 @@
+/* ============================================================
+   Basis-Styles: Reset, Typografie, globale Elemente
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-base);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* Scrolling nur innerhalb der Screens */
+}
+
+/* Überschriften */
+h1 { font-size: 1.4rem; font-weight: 700; }
+h2 { font-size: 1.15rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; color: var(--accent); margin-bottom: var(--space-sm); }
+
+/* Links */
+a { color: var(--accent); text-decoration: none; }
+
+/* Kleine Hilfsklassen */
+.text-muted    { color: var(--text-secondary); font-size: 0.85rem; }
+.text-danger   { color: var(--danger); }
+.text-success  { color: var(--success); }
+.text-warning  { color: var(--warning); }
+.text-accent   { color: var(--accent); }
+.text-center   { text-align: center; }
+.text-mono     { font-family: var(--font-mono); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-success  { background: var(--success-faint);  color: var(--success); }
+.badge-danger   { background: var(--danger-faint);   color: var(--danger); }
+.badge-warning  { background: var(--warning-faint);  color: var(--warning); }
+.badge-info     { background: var(--info-faint);     color: var(--info); }
+.badge-muted    { background: var(--bg-elevated);    color: var(--text-secondary); }
+
+/* Trennlinie */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--space-md) 0;
+}
+
+/* Toast-Benachrichtigungen (Popup-Meldungen) */
+.toast {
+  position: fixed;
+  bottom: calc(var(--nav-height) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: toast-in 0.2s ease;
+}
+.toast-info    { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+.toast-success { background: var(--success-faint); color: var(--success); border: 1px solid var(--success); }
+.toast-error   { background: var(--danger-faint);  color: var(--danger);  border: 1px solid var(--danger); }
+.toast-warning { background: var(--warning-faint); color: var(--warning); border: 1px solid var(--warning); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Leere Liste Hinweis */
+.empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-xl);
+  font-size: 0.9rem;
+  list-style: none;
+}
+
+/* Lade-Animation */
+.loading-hint {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-xl);
+}
