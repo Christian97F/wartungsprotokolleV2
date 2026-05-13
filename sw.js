@@ -16,16 +16,16 @@ const ASSETS = [
   './icon-192-v2.png',
   './icon-512-v2.png',
   './404.html',
-  './css/variables.css',
-  './css/base.css',
-  './css/layout.css',
-  './css/components.css',
-  './js/db.js',
-  './js/io.js',
-  './js/konfigurator.js',
-  './js/protokoll.js',
-  './js/eintraege.js',
-  './js/app.js'
+  './variables.css',
+  './base.css',
+  './layout.css',
+  './components.css',
+  './db.js',
+  './io.js',
+  './konfigurator.js',
+  './protokoll.js',
+  './eintraege.js',
+  './app.js'
 ];
 
 // Installation: Alle Dateien einzeln cachen (fehlertolerant)
