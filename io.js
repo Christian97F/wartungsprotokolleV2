@@ -70,7 +70,7 @@ export async function exportProtokoll(protokollId) {
   const aggregat = await DB.getAggregat(protokoll.aggregatId).catch(() => null);
 
   
-  const saeubern   = (text) => (text || '').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
+  const saeubern   = (text) => String(text ?? '').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
   const kommission = saeubern(aggregat?.stammdaten?.Kommission) || protokoll.aggregatId;
   const kunde      = saeubern(aggregat?.stammdaten?.Kunde)    || 'unbekannt';
   const standort   = saeubern(aggregat?.stammdaten?.Standort) || 'unbekannt';
