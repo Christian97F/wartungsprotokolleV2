@@ -69,9 +69,13 @@ export async function exportProtokoll(protokollId) {
   // Zugehörige Konfiguration mitexportieren (für spätere Protokoll-Erstellung)
   const aggregat = await DB.getAggregat(protokoll.aggregatId).catch(() => null);
 
-  const kommission = aggregat?.stammdaten?.Kommission || protokoll.aggregatId;
+  
+  const saeubern   = (text) => (text || '').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
+  const kommission = saeubern(aggregat?.stammdaten?.Kommission) || protokoll.aggregatId;
+  const kunde      = saeubern(aggregat?.stammdaten?.Kunde)    || 'unbekannt';
+  const standort   = saeubern(aggregat?.stammdaten?.Standort) || 'unbekannt';
   const datum      = protokoll.datum?.slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const filename   = `Wartung_${kommission}_${datum}.json`;
+  const filename   = `Wartung_${kommission}_${kunde}_${standort}_${datum}.json`;
 
   const exportDaten = {
     _typ:     'wartungsprotokoll',
