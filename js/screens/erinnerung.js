@@ -1,6 +1,6 @@
-// Einmal täglich beim Start an das Aktualisieren der Daten (Import der Sicherung) erinnern.
+// Beim Start an das Aktualisieren der Daten erinnern, bis an diesem Tag ein Import erfolgt ist.
 import { DB } from '../core/db.js';
-import { esc, heuteIso } from '../core/util.js';
+import { esc } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { dialog } from '../core/ui.js';
 
@@ -13,11 +13,10 @@ const zeit = (iso) => iso
 export async function taeglicheErinnerung() {
   const einstellung = await DB.einstellung('syncErinnerung', ERINNERUNG_STANDARD);
   if (!einstellung.aktiv) return;
-  // Pro Gerät gespeichert (nicht im Backup), damit jedes Tablet selbst fragt
-  if ((await DB.einstellung('syncGefragtAm')) === heuteIso()) return;
-  await DB.setzeEinstellung('syncGefragtAm', heuteIso());
-
+  // „letzterImport“ ist pro Gerät gespeichert (nicht im Backup); Vergleich in lokaler Zeit
   const [letzterImport, letztesBackup] = await Promise.all([DB.einstellung('letzterImport'), DB.einstellung('letztesBackup')]);
+  if (letzterImport && new Date(letzterImport).toDateString() === new Date().toDateString()) return;
+
   let dateien = null;
   await dialog({
     titel: 'Daten aktualisieren',

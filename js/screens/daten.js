@@ -157,7 +157,7 @@ export async function render(el) {
         </label>
         <div class="erinnerung-einstellung">
           <label class="check"><input type="checkbox" id="erinnerung-aktiv" ${erinnerung.aktiv ? 'checked' : ''}>
-            <span>Einmal täglich beim Start an das Aktualisieren erinnern</span></label>
+            <span>Beim Start an das Aktualisieren erinnern, bis heute importiert wurde</span></label>
           <label class="feld"><span class="feld-label">Hinweis in der Erinnerung</span>
             <textarea class="inp" rows="3" id="erinnerung-hinweis" placeholder="z. B. Dateien › iCloud Drive › Wartung › neueste Wartung_Backup-Datei wählen">${esc(erinnerung.hinweis)}</textarea>
             <span class="feld-hinweis">Wird mit der Sicherung auf andere Geräte übertragen.</span></label>
