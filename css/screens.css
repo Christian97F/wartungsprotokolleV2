@@ -462,3 +462,14 @@ fieldset:disabled .foto-weg, fieldset:disabled .foto-neu { display: none; }
 .erinnerung-hinweis { display: flex; gap: var(--s-3); padding: var(--s-3); border-radius: var(--r-2); background: var(--info-soft); color: var(--ink); font-size: 15px; }
 .erinnerung-hinweis .ic { color: var(--info); flex: none; margin-top: 2px; }
 .erinnerung-knopf { position: relative; align-self: stretch; cursor: pointer; }
+
+/* Import: riskante Auswahl */
+.iw-riskant:has(input:checked) { background: var(--fehler-soft); }
+.iw-riskant:has(input:checked):hover { background: var(--fehler-soft); }
+.iw-riskant input { accent-color: var(--fehler); }
+#iw-warnung { margin-bottom: var(--s-3); }
+.ue-liste { list-style: none; margin: 0 0 var(--s-3); padding: 0; border: 1px solid color-mix(in srgb, var(--fehler) 35%, transparent); border-radius: var(--r-2); max-height: 30dvh; overflow-y: auto; }
+.ue-liste li { padding: 8px var(--s-3); font-size: 14.5px; }
+.ue-liste li + li { border-top: 1px solid var(--line); }
+.ue-liste small { display: block; color: var(--ink-faint); font-size: 12px; }
+.ue-bestaetigung { margin-top: var(--s-3); font-weight: 600; }

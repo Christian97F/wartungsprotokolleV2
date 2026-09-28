@@ -17,7 +17,38 @@ import {
 const ARTEN = { anlagen: 'Anlagen', protokolle: 'Protokolle', vorlagen: 'Vorlagen' };
 const STATUS = { neu: 'neu', neuer: 'neuer als vorhanden', aelter: 'älter als vorhanden', gleich: 'unverändert', geloescht: 'hier gelöscht' };
 
+// Auswahl, die neuere Daten auf dem Gerät überschreibt oder löscht
+const RISKANT = new Set(['aelter', 'loeschen']);
+
 const zeit = (iso) => iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+
+// Zweite Sicherheitsstufe: jede riskante Auswahl einzeln aufführen und ausdrücklich bestätigen lassen
+async function ueberschreibenBestaetigen(riskant, einstellungen) {
+  const zeile = x => `<li><strong>${esc(x.text)}</strong><small>${esc(x.gruppe)} · ${esc(x.info)}</small></li>`;
+  const aelter = riskant.filter(x => x.status === 'aelter');
+  const weg = riskant.filter(x => x.status === 'loeschen');
+  const wahl = await dialog({
+    titel: 'Wirklich überschreiben?',
+    inhalt: `
+      ${aelter.length ? `<p class="dlg-text">Diese Einträge sind auf diesem Gerät <strong>neuer</strong> als in der Datei. Die neueren Änderungen gehen verloren:</p>
+        <ul class="ue-liste">${aelter.map(zeile).join('')}</ul>` : ''}
+      ${weg.length ? `<p class="dlg-text">Diese Einträge werden auf diesem Gerät <strong>gelöscht</strong>:</p>
+        <ul class="ue-liste">${weg.map(zeile).join('')}</ul>` : ''}
+      ${einstellungen ? `<p class="dlg-text">Die Einstellungen dieses Geräts werden ersetzt: ${esc(einstellungen)}.</p>` : ''}
+      <label class="check ue-bestaetigung"><input type="checkbox" name="verstanden">
+        <span>Ich habe geprüft, dass die Daten aus der Datei die richtigen sind.</span></label>`,
+    aktionen: [
+      { label: 'Zurück zur Auswahl', wert: null },
+      { label: 'Überschreiben', wert: 'ok', art: 'danger' },
+    ],
+    onOpen: (dlg) => {
+      const knopf = dlg.querySelector('[data-dlg-aktion="1"]');
+      knopf.disabled = true;
+      dlg.querySelector('[name="verstanden"]').addEventListener('change', e => { knopf.disabled = !e.target.checked; });
+    },
+  });
+  return wahl === 'ok';
+}
 
 export async function importDialog(dateien) {
   let analyse;
@@ -65,6 +96,14 @@ export async function importDialog(dateien) {
     .filter(x => x.status === 'loeschen' ? loeschungVorausgewaehlt(strategie) : vorausgewaehlt(x.status, strategie))
     .map(x => x.key)));
   let auswahl = vorauswahl('neuere');
+  const alleEintraege = gruppen.flatMap(g => g.eintraege.map(x => ({ ...x, gruppe: g.label })));
+  const riskanteAuswahl = () => alleEintraege.filter(x => RISKANT.has(x.status) && auswahl.has(x.key));
+  const warnText = (liste) => {
+    const alt = liste.filter(x => x.status === 'aelter').length;
+    const weg = liste.length - alt;
+    return [alt && `${alt} ältere${alt === 1 ? 'r Stand überschreibt' : ' Stände überschreiben'} neuere Daten auf diesem Gerät`,
+      weg && `${weg} Eintr${weg === 1 ? 'ag wird' : 'äge werden'} hier gelöscht`].filter(Boolean).join(' · ');
+  };
 
   const listeHtml = gruppen.filter(g => g.eintraege.length || g.gleich).map(g => `
     <div class="iw-gruppe" data-gruppe="${g.art}">
@@ -75,7 +114,7 @@ export async function importDialog(dateien) {
         ${g.gleich ? `<span class="hinweis">${g.gleich} unverändert</span>` : ''}
       </div>
       ${g.eintraege.map(x => `
-        <label class="iw-zeile">
+        <label class="iw-zeile ${RISKANT.has(x.status) ? 'iw-riskant' : ''}">
           <input type="checkbox" data-key="${esc(x.key)}">
           <span class="iw-text">${esc(x.text)}<small>${esc(x.info)}</small></span>
           <span class="tag ${x.status === 'loeschen' || x.status === 'aelter' ? 'tag-fehler' : 'tag-leise'}">${STATUS[x.status] || 'löschen'}</span>
@@ -91,9 +130,10 @@ export async function importDialog(dateien) {
         <fieldset class="optionen">
           <legend>Vorauswahl</legend>
           <label class="check"><input type="radio" name="strategie" value="neuere" checked><span><strong>Abgleichen</strong> – neuere Stände und Löschungen (empfohlen)</span></label>
-          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei</strong> – auch ältere Stände, holt hier Gelöschtes zurück</span></label>
+          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei</strong> – auch ältere Stände (überschreibt Neueres!), holt hier Gelöschtes zurück</span></label>
           <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Nur Neues</strong> – Vorhandenes nicht anfassen, nichts löschen</span></label>
         </fieldset>` : ''}
+      <div class="banner banner-fehler" id="iw-warnung" hidden>${icon('warnung')}<div><strong>Achtung – Daten werden überschrieben</strong><span></span></div></div>
       <div class="iw-liste">${listeHtml || '<p class="hinweis">Alle Einträge sind bereits aktuell.</p>'}</div>
       ${einstellungenText ? `<label class="check"><input type="checkbox" name="firma" ${neuesGeraet ? 'checked' : ''}>
         <span>Einstellungen übernehmen: ${esc(einstellungenText)}</span></label>` : ''}`,
@@ -103,6 +143,12 @@ export async function importDialog(dateien) {
       const zeige = () => {
         dlg.querySelectorAll('[data-key]').forEach(cb => { cb.checked = auswahl.has(cb.dataset.key); });
         knopf.lastChild.textContent = auswahl.size ? `Importieren (${auswahl.size})` : 'Importieren';
+        const riskant = riskanteAuswahl();
+        const warnung = dlg.querySelector('#iw-warnung');
+        warnung.hidden = !riskant.length;
+        warnung.querySelector('span').textContent = warnText(riskant);
+        knopf.classList.toggle('btn-primary', !riskant.length);
+        knopf.classList.toggle('btn-danger', !!riskant.length);
       };
       dlg.addEventListener('change', ev => {
         if (ev.target.name === 'strategie') { auswahl = vorauswahl(ev.target.value); zeige(); }
@@ -121,6 +167,12 @@ export async function importDialog(dateien) {
       zeige();
     },
     auslesen: dlg => ({ firma: !!dlg.querySelector('[name="firma"]')?.checked }),
+    vorSchliessen: async (_wert, dlg) => {
+      const riskant = riskanteAuswahl();
+      const einstellungenUeberschreiben = !neuesGeraet && dlg.querySelector('[name="firma"]')?.checked;
+      if (!riskant.length && !einstellungenUeberschreiben) return true;
+      return ueberschreibenBestaetigen(riskant, einstellungenUeberschreiben ? einstellungenText : '');
+    },
   });
   if (wert !== 'ok') return null;
 

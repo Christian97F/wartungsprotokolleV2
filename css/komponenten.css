@@ -548,3 +548,4 @@ fieldset:disabled .segment { opacity: .8; }
 /* Datei-Auswahl: unsichtbar, aber nicht display:none (sonst öffnet iOS den Dialog nicht zuverlässig) */
 .datei-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
 label:has(> .datei-input) { position: relative; }
+.banner-fehler { background: var(--fehler-soft); color: var(--fehler); }
