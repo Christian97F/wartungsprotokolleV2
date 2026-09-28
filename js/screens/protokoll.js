@@ -8,7 +8,7 @@ import {
   neuesProtokoll, planAktualisieren, auswertung, ergebnisVorschlag, anlagenTitel, ERGEBNISSE,
 } from '../core/model.js';
 import { modul } from '../sektionen/registry.js';
-import { zahlAusText, segment, eingabe } from '../sektionen/_helfer.js';
+import { zahlAusText, segment, eingabe } from '../sektionen/helfer.js';
 import { exportProtokolle } from '../io/austausch.js';
 import { unterschriftFeld } from './unterschrift.js';
 

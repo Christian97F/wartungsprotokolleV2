@@ -3,7 +3,7 @@ import { esc, holePfad, setzePfad, verschiebe, klon, eindeutigeId } from '../cor
 import { icon } from '../core/icons.js';
 import { bestaetigen, menue } from '../core/ui.js';
 import { modul, alleTypen } from '../sektionen/registry.js';
-import { zahlAusText, messungenAusText } from '../sektionen/_helfer.js';
+import { zahlAusText, messungenAusText } from '../sektionen/helfer.js';
 
 function zaehle(sek) {
   if (sek.typ === 'batterien') {

@@ -2,7 +2,7 @@ import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import {
   eingabe, statusSchalter, sektionKopfAktion, listenEditor,
   wertText, statusZelle,
-} from './_helfer.js';
+} from './helfer.js';
 
 const pruefpunkte = (sek) => sek.elemente.filter(e => e.art !== 'ueberschrift');
 

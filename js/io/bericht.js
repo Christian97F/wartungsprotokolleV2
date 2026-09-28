@@ -2,7 +2,7 @@
 // Browser-Druckdialog als PDF gespeichert oder als eigenständige HTML-Datei exportiert.
 import { esc, formatDatum, formatMonat, istLeer, formatZahl } from '../core/util.js';
 import { modul } from '../sektionen/registry.js';
-import { berichtSektion } from '../sektionen/_helfer.js';
+import { berichtSektion } from '../sektionen/helfer.js';
 import { KERN_STAMMDATEN, auswertung, ERGEBNISSE } from '../core/model.js';
 
 const PRIO = { hoch: 'hoch', mittel: 'mittel', niedrig: 'niedrig' };

@@ -1,5 +1,5 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
-import { eingabe, listenEditor, wertText } from './_helfer.js';
+import { eingabe, listenEditor, wertText } from './helfer.js';
 
 export default {
   typ: 'tabelle',

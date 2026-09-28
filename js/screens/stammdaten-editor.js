@@ -2,7 +2,7 @@
 // und das passende Eingabeformular.
 import { esc, eindeutigeId, holePfad, setzePfad, verschiebe } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { listenEditor, zahlAusText, zahlInInput } from '../sektionen/_helfer.js';
+import { listenEditor, zahlAusText, zahlInInput } from '../sektionen/helfer.js';
 import { FELD_SPALTEN } from '../sektionen/felder.js';
 
 export function stammdatenGruppenEditor(container, gruppen, onChange) {

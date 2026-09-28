@@ -1,5 +1,5 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
-import { eingabe, statusSchalter, checkbox, listenEditor, wertText, statusZelle } from './_helfer.js';
+import { eingabe, statusSchalter, checkbox, listenEditor, wertText, statusZelle } from './helfer.js';
 
 const MESSUNGEN = [
   { id: 'leerlauf', label: 'Leerlaufspannung', einheit: 'V' },

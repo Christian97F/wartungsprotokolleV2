@@ -1,5 +1,5 @@
 import { esc, eindeutigeId } from '../core/util.js';
-import { listenEditor } from './_helfer.js';
+import { listenEditor } from './helfer.js';
 
 export default {
   typ: 'aufgaben',

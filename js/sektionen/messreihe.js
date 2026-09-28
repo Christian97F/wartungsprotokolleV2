@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { icon } from '../core/icons.js';
-import { listenEditor, wertText } from './_helfer.js';
+import { listenEditor, wertText } from './helfer.js';
 import { FELD_SPALTEN, feldFormular } from './felder.js';
 
 const leererEintrag = () => ({});
