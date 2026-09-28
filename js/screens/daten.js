@@ -9,11 +9,14 @@ import { bildVerkleinern } from '../core/bild.js';
 import { thema, setzeThema } from '../core/thema.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
+  schluessel, loeschSchluessel, vorausgewaehlt, loeschungVorausgewaehlt, zeitstempelVon,
   exportBackup, exportUebersichtCsv, kannTeilen,
 } from '../io/austausch.js';
 
 const ARTEN = { anlagen: 'Anlagen', protokolle: 'Protokolle', vorlagen: 'Vorlagen' };
 const STATUS = { neu: 'neu', neuer: 'neuer als vorhanden', aelter: 'älter als vorhanden', gleich: 'unverändert', geloescht: 'hier gelöscht' };
+
+const zeit = (iso) => iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';
 
 export async function importDialog(dateien) {
   let analyse;
@@ -39,45 +42,91 @@ export async function importDialog(dateien) {
   const neuesGeraet = !(await DB.einstellung('firma'))?.name;
   const konflikte = analyse.loeschen.length || Object.keys(ARTEN).some(a => zaehle(a, 'neuer') + zaehle(a, 'aelter') + zaehle(a, 'geloescht') > 0);
 
+  // Auswählbare Einträge (unveränderte werden nur gezählt)
+  const gruppen = Object.entries(ARTEN).map(([art, label]) => ({
+    art, label,
+    eintraege: analyse[art].filter(x => x.status !== 'gleich').map(x => ({
+      key: schluessel(art, x.obj.id), status: x.status, text: beschreibe[art](x.obj),
+      info: x.status === 'neu' ? `Datei: ${zeit(zeitstempelVon(x.obj))}`
+        : `Datei: ${zeit(zeitstempelVon(x.obj))} · ${x.status === 'geloescht' ? 'hier gelöscht' : 'Gerät'}: ${zeit(x.lokal)}`,
+    })),
+    gleich: zaehle(art, 'gleich'),
+  }));
+  if (analyse.loeschen.length) {
+    gruppen.push({ art: 'loeschen', label: 'Löschungen (auf anderem Gerät gelöscht)', gleich: 0,
+      eintraege: analyse.loeschen.map(x => ({
+        key: loeschSchluessel(x.art, x.obj.id), status: 'loeschen', text: beschreibe[x.art](x.obj),
+        info: `${ARTEN[x.art]} · wird hier gelöscht`,
+      })) });
+  }
+  const vorauswahl = (strategie) => new Set(gruppen.flatMap(g => g.eintraege
+    .filter(x => x.status === 'loeschen' ? loeschungVorausgewaehlt(strategie) : vorausgewaehlt(x.status, strategie))
+    .map(x => x.key)));
+  let auswahl = vorauswahl('neuere');
+
+  const listeHtml = gruppen.filter(g => g.eintraege.length || g.gleich).map(g => `
+    <div class="iw-gruppe" data-gruppe="${g.art}">
+      <div class="iw-kopf">
+        <strong>${esc(g.label)}</strong>
+        ${g.eintraege.length ? `<button type="button" class="link" data-alle="${g.art}">alle</button>
+          <button type="button" class="link" data-keine="${g.art}">keine</button>` : ''}
+        ${g.gleich ? `<span class="hinweis">${g.gleich} unverändert</span>` : ''}
+      </div>
+      ${g.eintraege.map(x => `
+        <label class="iw-zeile">
+          <input type="checkbox" data-key="${esc(x.key)}">
+          <span class="iw-text">${esc(x.text)}<small>${esc(x.info)}</small></span>
+          <span class="tag ${x.status === 'loeschen' || x.status === 'aelter' ? 'tag-fehler' : 'tag-leise'}">${STATUS[x.status] || 'löschen'}</span>
+        </label>`).join('')}
+    </div>`).join('');
+
   const { wert, daten } = await dialog({
     titel: 'Import prüfen',
     breit: true,
     inhalt: `
       ${analyse.alt ? `<div class="banner">${icon('info')}<div><strong>Älteres Dateiformat</strong><span>Die Daten werden automatisch in das neue Format umgewandelt (NEA-Vorlage).</span></div></div>` : ''}
-      <table class="import-tabelle">
-        <thead><tr><th></th><th>Neu</th><th>Neuer</th><th>Älter</th><th>Gleich</th></tr></thead>
-        <tbody>${Object.entries(ARTEN).filter(([a]) => analyse[a].length).map(([a, l]) => `
-          <tr><th>${l}</th>${['neu', 'neuer', 'aelter', 'gleich'].map(st => `<td>${zaehle(a, st) || '–'}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table>
-      ${analyse.loeschen.length ? `<div class="banner banner-warn">${icon('loeschen')}<div><strong>${analyse.loeschen.length} Löschung(en)</strong>
-        <span>Auf einem anderen Gerät gelöscht: ${analyse.loeschen.map(x => esc(beschreibe[x.art](x.obj))).join(', ')}</span></div></div>` : ''}
       ${konflikte ? `
         <fieldset class="optionen">
-          <legend>Bereits vorhandene Einträge</legend>
-          <label class="check"><input type="radio" name="strategie" value="neuere" checked><span><strong>Abgleichen</strong> – neuere Stände und Löschungen übernehmen (empfohlen)</span></label>
-          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei übernehmen</strong> – überschreibt auch neuere Stände, holt hier Gelöschtes zurück</span></label>
-          <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Vorhandene nicht anfassen</strong> – nur Neues hinzufügen, nichts löschen</span></label>
+          <legend>Vorauswahl</legend>
+          <label class="check"><input type="radio" name="strategie" value="neuere" checked><span><strong>Abgleichen</strong> – neuere Stände und Löschungen (empfohlen)</span></label>
+          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei</strong> – auch ältere Stände, holt hier Gelöschtes zurück</span></label>
+          <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Nur Neues</strong> – Vorhandenes nicht anfassen, nichts löschen</span></label>
         </fieldset>` : ''}
+      <div class="iw-liste">${listeHtml || '<p class="hinweis">Alle Einträge sind bereits aktuell.</p>'}</div>
       ${einstellungenText ? `<label class="check"><input type="checkbox" name="firma" ${neuesGeraet ? 'checked' : ''}>
-        <span>Einstellungen übernehmen: ${esc(einstellungenText)}</span></label>` : ''}
-      <details class="import-details"><summary>Einträge anzeigen</summary>
-        ${Object.entries(ARTEN).filter(([a]) => analyse[a].length).map(([a, l]) => `
-          <h4>${l}</h4><ul>${analyse[a].map(x => `<li>${esc(beschreibe[a](x.obj))} <span class="tag tag-leise">${STATUS[x.status]}</span></li>`).join('')}</ul>`).join('')}
-      </details>`,
+        <span>Einstellungen übernehmen: ${esc(einstellungenText)}</span></label>` : ''}`,
     aktionen: [{ label: 'Abbrechen', wert: null }, { label: 'Importieren', wert: 'ok', art: 'primary', icon: 'import' }],
-    auslesen: dlg => ({
-      strategie: dlg.querySelector('[name="strategie"]:checked')?.value || 'neuere',
-      firma: !!dlg.querySelector('[name="firma"]')?.checked,
-    }),
+    onOpen: (dlg) => {
+      const knopf = dlg.querySelector('[data-dlg-aktion="1"]');
+      const zeige = () => {
+        dlg.querySelectorAll('[data-key]').forEach(cb => { cb.checked = auswahl.has(cb.dataset.key); });
+        knopf.lastChild.textContent = auswahl.size ? `Importieren (${auswahl.size})` : 'Importieren';
+      };
+      dlg.addEventListener('change', ev => {
+        if (ev.target.name === 'strategie') { auswahl = vorauswahl(ev.target.value); zeige(); }
+        if (ev.target.dataset.key) {
+          if (ev.target.checked) auswahl.add(ev.target.dataset.key); else auswahl.delete(ev.target.dataset.key);
+          zeige();
+        }
+      });
+      dlg.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-alle], [data-keine]');
+        if (!b) return;
+        const g = gruppen.find(x => x.art === (b.dataset.alle || b.dataset.keine));
+        g.eintraege.forEach(x => (b.dataset.alle ? auswahl.add(x.key) : auswahl.delete(x.key)));
+        zeige();
+      });
+      zeige();
+    },
+    auslesen: dlg => ({ firma: !!dlg.querySelector('[name="firma"]')?.checked }),
   });
   if (wert !== 'ok') return null;
 
-  const z = await importiere(analyse, daten.strategie, { einstellungen: daten.firma });
+  const z = await importiere(analyse, auswahl, { einstellungen: daten.firma });
   const text = [...Object.entries(ARTEN).map(([a, l]) => z[a] ? `${z[a]} ${l}` : ''), z.geloescht ? `${z.geloescht} gelöscht` : '']
     .filter(Boolean).join(', ');
   const gesamt = [text, daten.firma && einstellungenText ? 'Einstellungen' : ''].filter(Boolean).join(', ');
-  toast(gesamt ? `Importiert: ${gesamt}` : 'Nichts zu importieren – alles aktuell', gesamt ? 'success' : 'info', 4500);
+  toast(gesamt ? `Importiert: ${gesamt}` : 'Nichts importiert', gesamt ? 'success' : 'info', 4500);
   return z;
 }
 

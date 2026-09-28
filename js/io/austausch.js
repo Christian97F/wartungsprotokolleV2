@@ -178,7 +178,8 @@ export async function normalisiere(daten, name = '') {
   return { anlagen, protokolle, vorlagen: [], einstellungen: null, alt: true };
 }
 
-const zeitstempel = (o) => o.geaendert_am || o.erstellt_am || '';
+export const zeitstempelVon = (o) => o.geaendert_am || o.erstellt_am || '';
+const zeitstempel = zeitstempelVon;
 
 /** Vergleicht mit der Datenbank: neu / neuer / älter / gleich. */
 export async function analysiere(pakete) {
@@ -210,7 +211,7 @@ export async function analysiere(pakete) {
       } else if (lokalGeloescht[`${art}:${o.id}`] >= zeitstempel(o)) {
         status = 'geloescht';
       }
-      ergebnis[art].push({ obj: o, status });
+      ergebnis[art].push({ obj: o, status, lokal: db ? zeitstempel(db) : lokalGeloescht[`${art}:${o.id}`] || null });
     }
   }
   // Auf einem anderen Gerät gelöscht, hier seitdem nicht mehr geändert → hier auch löschen
@@ -229,24 +230,33 @@ export const beschreibe = {
   vorlagen: (v) => v.name,
 };
 
-/** strategie: 'neuere' (Standard) | 'alle' | 'nurNeue' */
-export async function importiere(analyse, strategie = 'neuere', { einstellungen = false } = {}) {
-  const nehmen = (status) =>
-    status === 'neu' || (strategie === 'alle' && status !== 'gleich') || (strategie === 'neuere' && status === 'neuer');
-  // strategie 'alle' holt auch hier gelöschte Einträge zurück
+export const schluessel = (art, id) => `${art}:${id}`;
+export const loeschSchluessel = (art, id) => `loeschen:${art}:${id}`;
+
+/** Vorauswahl je Strategie: 'neuere' (Abgleich) | 'alle' | 'nurNeue' */
+export function vorausgewaehlt(status, strategie) {
+  return status === 'neu' || (strategie === 'alle' && status !== 'gleich') || (strategie === 'neuere' && status === 'neuer');
+}
+export const loeschungVorausgewaehlt = (strategie) => strategie !== 'nurNeue';
+
+/** auswahl: Set aus schluessel(...) bzw. loeschSchluessel(...) – nur diese werden übernommen */
+export async function importiere(analyse, auswahl, { einstellungen = false } = {}) {
   const zaehler = {};
   for (const art of ['vorlagen', 'anlagen', 'protokolle']) {
-    const liste = analyse[art].filter(x => nehmen(x.status)).map(x => x.obj);
+    const liste = analyse[art].filter(x => auswahl.has(schluessel(art, x.obj.id))).map(x => x.obj);
     if (liste.length) await DB[art].speichereViele(liste);
     zaehler[art] = liste.length;
   }
-  zaehler.geloescht = 0;
-  if (strategie !== 'nurNeue') {
-    for (const { art, obj } of analyse.loeschen) await DB[art].entferne(obj.id);
-    zaehler.geloescht = analyse.loeschen.length;
-  }
+  const loeschen = analyse.loeschen.filter(x => auswahl.has(loeschSchluessel(x.art, x.obj.id)));
+  for (const { art, obj } of loeschen) await DB[art].entferne(obj.id);
+  zaehler.geloescht = loeschen.length;
+  // Abgewählte Löschungen nicht vormerken, sonst würden sie beim nächsten Abgleich erneut angeboten
+  const abgewaehlt = new Set(analyse.loeschen.filter(x => !auswahl.has(loeschSchluessel(x.art, x.obj.id)))
+    .map(x => schluessel(x.art, x.obj.id)));
   const lokal = await DB.einstellung('geloescht', {});
-  for (const [k, t] of Object.entries(analyse.geloescht || {})) if (!lokal[k] || t > lokal[k]) lokal[k] = t;
+  for (const [k, t] of Object.entries(analyse.geloescht || {})) {
+    if (!abgewaehlt.has(k) && (!lokal[k] || t > lokal[k])) lokal[k] = t;
+  }
   await DB.setzeEinstellung('geloescht', lokal);
   if (einstellungen && analyse.einstellungen) {
     for (const k of EINSTELLUNGEN) {
