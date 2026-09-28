@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import {
-  eingabe, statusSchalter, sektionKopfAktion, listenEditor, fotoLeiste,
+  eingabe, statusSchalter, listenEditor, fotoLeiste,
   wertText, statusZelle,
 } from './helfer.js';
 import { FARBE, pdfWert, pdfStatus, tabelle } from './pdfhelfer.js';
@@ -68,8 +68,6 @@ export default {
   },
 
   formular(sek, werte, pfad) {
-    const hatBewertung = pruefpunkte(sek).some(e => e.bewertung !== false);
-    const kopf = hatBewertung ? `<div class="sek-werkzeug">${sektionKopfAktion('alle_ok', 'Offene auf i.O.')}</div>` : '';
     const zeilen = sek.elemente.map(el => {
       if (el.art === 'ueberschrift') return `<h4 class="cl-ueberschrift">${esc(el.label)}</h4>`;
       const w = werte[el.id];
@@ -95,15 +93,7 @@ export default {
             ${fotoLeiste(`${p}.fotos`, w.fotos)}</div>` : ''}
         </div>`;
     }).join('');
-    return kopf + `<div class="cl">${zeilen}</div>`;
-  },
-
-  aktion(name, _daten, sek, werte) {
-    if (name !== 'alle_ok') return false;
-    for (const el of pruefpunkte(sek)) {
-      if (el.bewertung !== false && !werte[el.id].s) werte[el.id].s = 'ok';
-    }
-    return true;
+    return `<div class="cl">${zeilen}</div>`;
   },
 
   pruefe(sek, werte) {

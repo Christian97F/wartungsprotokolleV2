@@ -189,7 +189,6 @@ a.kz:hover { border-color: var(--line-strong); }
 .sek-nr { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); font-weight: 500; }
 .sek-kopf h2 { flex: 1; font-size: 18px; text-transform: uppercase; letter-spacing: .02em; }
 .sek > .hinweis { margin-bottom: var(--s-3); }
-.sek-werkzeug { display: flex; justify-content: flex-end; margin: calc(var(--s-2) * -1) 0 var(--s-2); }
 
 /* Checkliste */
 .cl { display: flex; flex-direction: column; }
@@ -402,7 +401,6 @@ a.kz:hover { border-color: var(--line-strong); }
 .import-details ul { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; }
 
 /* Gesperrtes Protokoll: Bearbeitungs-Knöpfe ausblenden */
-fieldset:disabled .sek-werkzeug,
 fieldset:disabled [data-w-aktion],
 fieldset:disabled [data-m-aktion],
 fieldset:disabled .us-leeren { display: none; }

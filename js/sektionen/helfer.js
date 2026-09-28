@@ -82,10 +82,6 @@ export function checkbox(pfad, wert, label) {
   return `<label class="check"><input type="checkbox" data-w="${esc(pfad)}" data-wt="bool" ${wert ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 }
 
-export function sektionKopfAktion(aktion, label, ic = 'check') {
-  return `<button type="button" class="btn btn-ghost btn-sm" data-w-aktion="${aktion}">${icon(ic)}${esc(label)}</button>`;
-}
-
 // ── Editor ───────────────────────────────────────────────────
 
 /**
