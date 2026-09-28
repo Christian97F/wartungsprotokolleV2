@@ -19,18 +19,18 @@ export function faelligkeit(naechste) {
   return { art: 'ok', text: `Nächste Prüfung ${formatMonat(naechste)}` };
 }
 
-export async function vorlageAuswahl() {
+export async function vorlageWaehlen(titel, text, aktuell) {
   const vorlagen = await vorlagenZurAuswahl();
   const r = await dialog({
-    titel: 'Neue Anlage',
+    titel,
     breit: true,
-    inhalt: `<p class="dlg-text">Mit welcher Vorlage soll der Prüfplan starten? Alles lässt sich danach für die Anlage anpassen.</p>
+    inhalt: `<p class="dlg-text">${esc(text)}</p>
       <div class="vorlagen-wahl">${vorlagen.map(v => `
         <button type="button" class="vw-karte" data-vorlage="${esc(v.id)}">
           <span class="vw-kat">${esc(v.kategorie || 'Eigene Vorlage')}</span>
           <strong>${esc(v.name)}</strong>
           <span class="vw-text">${esc(v.beschreibung || '')}</span>
-          <span class="vw-meta">${v.sektionen.length} Abschnitte${v.herkunft === 'mitgeliefert' ? ' · mitgeliefert' : ''}</span>
+          <span class="vw-meta">${v.sektionen.length} Abschnitte${v.herkunft === 'mitgeliefert' ? ' · mitgeliefert' : ''}${v.id === aktuell ? ' · aktuell' : ''}</span>
         </button>`).join('')}
       </div>`,
     auslesen: dlg => dlg.dataset.gewaehlt,
@@ -41,7 +41,12 @@ export async function vorlageAuswahl() {
       }));
     },
   });
-  if (r.wert === 'ok') navigiere(`/anlage/neu?vorlage=${encodeURIComponent(r.daten)}`);
+  return r.wert === 'ok' ? vorlagen.find(v => v.id === r.daten) : null;
+}
+
+export async function vorlageAuswahl() {
+  const v = await vorlageWaehlen('Neue Anlage', 'Mit welcher Vorlage soll der Prüfplan starten? Alles lässt sich danach für die Anlage anpassen.');
+  if (v) navigiere(`/anlage/neu?vorlage=${encodeURIComponent(v.id)}`);
 }
 
 export async function render(el) {

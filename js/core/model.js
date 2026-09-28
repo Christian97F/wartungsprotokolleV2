@@ -157,3 +157,31 @@ export function ergebnisVorschlag(a) {
 export function anlagenTitel(stammdaten = {}) {
   return [stammdaten.kommission, stammdaten.bezeichnung].filter(Boolean).join(' – ') || 'Unbenannte Anlage';
 }
+
+/**
+ * Überträgt eine Vorlage auf eine bestehende Anlage (Arrays werden in place geändert).
+ * Stammdaten-Felder werden immer nur ergänzt, damit keine Werte verschwinden.
+ * modus 'ergaenzen': nur Abschnitte mit neuer ID anhängen; 'ersetzen': Prüfplan austauschen.
+ */
+export function vorlageAnwenden(anlage, vorlage, modus) {
+  for (const gruppe of vorlage.stammdaten || []) {
+    const vorhanden = anlage.zusatzFelder.find(g => g.id === gruppe.id);
+    if (!vorhanden) { anlage.zusatzFelder.push(klon(gruppe)); continue; }
+    const ids = new Set(vorhanden.felder.map(f => f.id));
+    vorhanden.felder.push(...klon(gruppe.felder.filter(f => !ids.has(f.id))));
+  }
+  const sektionen = klon(vorlage.sektionen || []);
+  let hinzu;
+  if (modus === 'ersetzen') {
+    anlage.pruefplan.splice(0, anlage.pruefplan.length, ...sektionen);
+    hinzu = sektionen.length;
+  } else {
+    const ids = new Set(anlage.pruefplan.map(s => s.id));
+    const neu = sektionen.filter(s => !ids.has(s.id));
+    anlage.pruefplan.push(...neu);
+    hinzu = neu.length;
+  }
+  anlage.vorlageId = vorlage.id;
+  anlage.vorlageName = vorlage.name;
+  return hinzu;
+}

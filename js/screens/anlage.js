@@ -4,9 +4,10 @@ import { icon } from '../core/icons.js';
 import { toast, bestaetigen, menue, dialog, eingabe } from '../core/ui.js';
 import { setzeKopf, setzeKopfStatus } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
-import { KERN_STAMMDATEN, neueAnlage, anlagenTitel, vorlageKopie } from '../core/model.js';
+import { KERN_STAMMDATEN, neueAnlage, anlagenTitel, vorlageKopie, vorlageAnwenden } from '../core/model.js';
 import { holeVorlage } from '../vorlagen/vorlagen.js';
 import { exportAnlage } from '../io/austausch.js';
+import { vorlageWaehlen } from './anlagen.js';
 import { pruefplanEditor } from './pruefplan-editor.js';
 import { stammdatenFeld, bindeFormular, stammdatenGruppenEditor } from './stammdaten-editor.js';
 
@@ -14,6 +15,43 @@ let anlage = null;
 let istNeu = false;
 let geaendert = false;
 let tab = 'stammdaten';
+let neuZeichnen = () => {};
+
+async function vorlageWechseln() {
+  const vorlage = await vorlageWaehlen('Vorlage wechseln',
+    'Welche Vorlage soll auf diese Anlage angewendet werden?', anlage.vorlageId);
+  if (!vorlage) return;
+  const protokolle = istNeu ? [] : await DB.protokolle.vonAnlage(anlage.id);
+  const fertig = protokolle.filter(p => p.status === 'abgeschlossen').length;
+  const entwuerfe = protokolle.length - fertig;
+  const wahl = await dialog({
+    titel: `„${vorlage.name}“ anwenden`,
+    inhalt: `
+      <p class="dlg-text"><strong>Ergänzen:</strong> Der bisherige Prüfplan bleibt, Abschnitte der Vorlage, die noch fehlen, werden angehängt.</p>
+      <p class="dlg-text"><strong>Ersetzen:</strong> Der Prüfplan wird durch den der Vorlage ersetzt.</p>
+      <p class="dlg-text">Stammdaten-Felder werden in beiden Fällen nur ergänzt, eingetragene Werte bleiben erhalten.</p>
+      ${protokolle.length ? `<div class="vm-box">
+        ${fertig ? `<p>${fertig} abgeschlossene${fertig === 1 ? 's' : ''} Protokoll${fertig === 1 ? '' : 'e'} bleib${fertig === 1 ? 't' : 'en'} unverändert.</p>` : ''}
+        ${entwuerfe ? `<p>${entwuerfe} Entw${entwuerfe === 1 ? 'urf wird' : 'ürfe werden'} beim Öffnen an den neuen Prüfplan angepasst – Werte gleicher Prüfpunkte bleiben, entfallene werden ausgeblendet.</p>` : ''}
+        <p>Vorwerte der letzten Wartung erscheinen nur bei Prüfpunkten, die es vorher schon gab.</p>
+      </div>` : ''}
+      <p class="dlg-text">Wirksam erst nach „Speichern“.</p>`,
+    aktionen: [
+      { label: 'Abbrechen', wert: null },
+      { label: 'Ersetzen', wert: 'ersetzen', art: 'danger-leise' },
+      { label: 'Ergänzen', wert: 'ergaenzen', art: 'primary' },
+    ],
+  });
+  if (!wahl) return;
+  const hinzu = vorlageAnwenden(anlage, vorlage, wahl);
+  neuZeichnen();
+  markiere();
+  const eyebrow = document.querySelector('.kopf-titel .eyebrow');
+  if (eyebrow) eyebrow.textContent = `Anlage · ${anlage.vorlageName}`;
+  toast(wahl === 'ersetzen' ? 'Prüfplan ersetzt – bitte prüfen und speichern'
+    : `${hinzu} Abschnitt${hinzu === 1 ? '' : 'e'} ergänzt – bitte prüfen und speichern`);
+  wechsleTab('plan');
+}
 
 function markiere() {
   if (geaendert) return;
@@ -109,6 +147,7 @@ export async function render(el, params, query) {
           if (geaendert && !await speichern()) return;
           navigiere(`/protokoll/neu?anlage=${encodeURIComponent(anlage.id)}`);
         } },
+        { label: 'Vorlage wechseln …', icon: 'vorlage', aktion: vorlageWechseln },
         { label: 'Als Vorlage speichern', icon: 'vorlage', aktion: async () => {
           const name = await eingabe('Als Vorlage speichern', { label: 'Name der Vorlage', wert: anlagenTitel(anlage.stammdaten) });
           if (!name) return;
@@ -163,10 +202,15 @@ export async function render(el, params, query) {
       document.querySelector('.kopf-titel h1').textContent = anlagenTitel(anlage.stammdaten);
     }
   });
-  pruefplanEditor(el.querySelector('#panel-plan'), anlage.pruefplan, () => {
+  const planEditor = pruefplanEditor(el.querySelector('#panel-plan'), anlage.pruefplan, () => {
     markiere();
     el.querySelector('.tab-zahl').textContent = anlage.pruefplan.length;
   });
+  neuZeichnen = () => {
+    zeichneStammdaten();
+    planEditor.neuZeichnen();
+    el.querySelector('.tab-zahl').textContent = anlage.pruefplan.length;
+  };
 
   el.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => wechsleTab(b.dataset.tab); });
   el.querySelector('#unten-speichern').onclick = speichern;
