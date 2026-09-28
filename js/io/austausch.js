@@ -61,12 +61,20 @@ const alsJson = (obj) => new Blob([JSON.stringify(obj, null, 2)], { type: 'appli
 
 // ── Export ───────────────────────────────────────────────────
 
+// Einstellungen, die mit ins Backup gehen (Briefkopf inkl. Logo, Standard-Techniker, Unterschriftsfelder)
+const EINSTELLUNGEN = ['firma', 'techniker', 'unterschriftFelder'];
+
+async function sicherbareEinstellungen() {
+  const werte = await Promise.all(EINSTELLUNGEN.map(k => DB.einstellung(k)));
+  return Object.fromEntries(EINSTELLUNGEN.map((k, i) => [k, werte[i]]).filter(([, w]) => w != null));
+}
+
 export async function exportBackup(opts) {
-  const [anlagen, protokolle, vorlagen, firma, geloescht] = await Promise.all([
-    DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(), DB.einstellung('firma'), DB.einstellung('geloescht', {}),
+  const [anlagen, protokolle, vorlagen, geloescht, einstellungen] = await Promise.all([
+    DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(), DB.einstellung('geloescht', {}), sicherbareEinstellungen(),
   ]);
   const name = `Wartung_Backup_${heuteIso()}.json`;
-  const r = await ausgeben(alsJson(paket('backup', { anlagen, protokolle, vorlagen, geloescht, einstellungen: { firma } })), name, opts);
+  const r = await ausgeben(alsJson(paket('backup', { anlagen, protokolle, vorlagen, geloescht, einstellungen })), name, opts);
   if (r !== 'abgebrochen') await DB.setzeEinstellung('letztesBackup', jetztIso());
   return { name, anlagen: anlagen.length, protokolle: protokolle.length, vorlagen: vorlagen.length, r };
 }
@@ -240,6 +248,10 @@ export async function importiere(analyse, strategie = 'neuere', { einstellungen 
   const lokal = await DB.einstellung('geloescht', {});
   for (const [k, t] of Object.entries(analyse.geloescht || {})) if (!lokal[k] || t > lokal[k]) lokal[k] = t;
   await DB.setzeEinstellung('geloescht', lokal);
-  if (einstellungen && analyse.einstellungen?.firma) await DB.setzeEinstellung('firma', analyse.einstellungen.firma);
+  if (einstellungen && analyse.einstellungen) {
+    for (const k of EINSTELLUNGEN) {
+      if (analyse.einstellungen[k] != null) await DB.setzeEinstellung(k, analyse.einstellungen[k]);
+    }
+  }
   return zaehler;
 }

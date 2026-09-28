@@ -28,7 +28,15 @@ export async function importDialog(dateien) {
 
   const zaehle = (art, st) => analyse[art].filter(x => x.status === st).length;
   const leer = Object.keys(ARTEN).every(a => !analyse[a].length);
-  if (leer && !analyse.loeschen.length && !analyse.einstellungen) { toast('Die Datei enthält keine Daten', 'warning'); return null; }
+  if (leer && !analyse.loeschen.length && !Object.keys(analyse.einstellungen || {}).length) { toast('Die Datei enthält keine Daten', 'warning'); return null; }
+  // Auf einem frischen Gerät (noch kein Briefkopf) Einstellungen standardmäßig übernehmen
+  const e = analyse.einstellungen || {};
+  const einstellungenText = [
+    e.firma && (e.firma.logo ? 'Briefkopf mit Logo' : 'Briefkopf'),
+    e.techniker && 'Standard-Techniker',
+    e.unterschriftFelder && 'Unterschriftsfelder',
+  ].filter(Boolean).join(', ');
+  const neuesGeraet = !(await DB.einstellung('firma'))?.name;
   const konflikte = analyse.loeschen.length || Object.keys(ARTEN).some(a => zaehle(a, 'neuer') + zaehle(a, 'aelter') + zaehle(a, 'geloescht') > 0);
 
   const { wert, daten } = await dialog({
@@ -51,7 +59,8 @@ export async function importDialog(dateien) {
           <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei übernehmen</strong> – überschreibt auch neuere Stände, holt hier Gelöschtes zurück</span></label>
           <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Vorhandene nicht anfassen</strong> – nur Neues hinzufügen, nichts löschen</span></label>
         </fieldset>` : ''}
-      ${analyse.einstellungen?.firma ? `<label class="check"><input type="checkbox" name="firma"><span>Briefkopf (Firma/Logo) aus der Datei übernehmen</span></label>` : ''}
+      ${einstellungenText ? `<label class="check"><input type="checkbox" name="firma" ${neuesGeraet ? 'checked' : ''}>
+        <span>Einstellungen übernehmen: ${esc(einstellungenText)}</span></label>` : ''}
       <details class="import-details"><summary>Einträge anzeigen</summary>
         ${Object.entries(ARTEN).filter(([a]) => analyse[a].length).map(([a, l]) => `
           <h4>${l}</h4><ul>${analyse[a].map(x => `<li>${esc(beschreibe[a](x.obj))} <span class="tag tag-leise">${STATUS[x.status]}</span></li>`).join('')}</ul>`).join('')}
@@ -67,7 +76,8 @@ export async function importDialog(dateien) {
   const z = await importiere(analyse, daten.strategie, { einstellungen: daten.firma });
   const text = [...Object.entries(ARTEN).map(([a, l]) => z[a] ? `${z[a]} ${l}` : ''), z.geloescht ? `${z.geloescht} gelöscht` : '']
     .filter(Boolean).join(', ');
-  toast(text ? `Importiert: ${text}` : 'Nichts zu importieren – alles aktuell', text ? 'success' : 'info', 4500);
+  const gesamt = [text, daten.firma && einstellungenText ? 'Einstellungen' : ''].filter(Boolean).join(', ');
+  toast(gesamt ? `Importiert: ${gesamt}` : 'Nichts zu importieren – alles aktuell', gesamt ? 'success' : 'info', 4500);
   return z;
 }
 
