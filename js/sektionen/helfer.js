@@ -41,8 +41,8 @@ export function eingabe(pfad, wert, { typ = 'zahl', einheit = '', platzhalter = 
     </select>`;
   }
   // Zahl: Textfeld mit Dezimaltastatur, damit Komma funktioniert.
-  // Bei Temperaturen braucht es das Minus, das die Dezimaltastatur (iOS) nicht hat.
-  const modus = /°/.test(einheit) ? 'text' : 'decimal';
+  // Temperaturen und Drücke können negativ sein – die Dezimaltastatur (iPhone) hat kein Minus.
+  const modus = /°|bar|Pa\b/i.test(einheit) ? 'text' : 'decimal';
   const feld = `<input class="inp inp-zahl ${klasse}" type="text" inputmode="${modus}" autocomplete="off"
     data-w="${p}" data-wt="zahl" value="${esc(zahlInInput(wert))}" placeholder="${esc(platzhalter)}">`;
   return einheit ? `<span class="mit-einheit">${feld}<span class="einheit">${esc(einheit)}</span></span>` : feld;
