@@ -51,14 +51,27 @@ async function vermerkeLoeschung(store, id) {
   await DB.setzeEinstellung('geloescht', liste);
 }
 
+// Erste lokale Änderung seit der letzten Sicherung merken. Importe und Migrationen
+// schreiben über speichereViele/entferne und zählen bewusst nicht mit.
+let ungesichertBekannt = false;
+async function vermerkeAenderung() {
+  if (ungesichertBekannt) return;
+  if (!await DB.einstellung('ungesichert')) await DB.setzeEinstellung('ungesichert', new Date().toISOString());
+  ungesichertBekannt = true;
+}
+
 function crud(store) {
   return {
     alle: () => anfrage(store, 'readonly', s => s.getAll()),
     hole: (id) => anfrage(store, 'readonly', s => s.get(id)),
-    speichere: (obj) => anfrage(store, 'readwrite', s => s.put(obj)),
+    speichere: async (obj) => {
+      await anfrage(store, 'readwrite', s => s.put(obj));
+      await vermerkeAenderung();
+    },
     loesche: async (id) => {
       await anfrage(store, 'readwrite', s => s.delete(id));
       await vermerkeLoeschung(store, id);
+      await vermerkeAenderung();
     },
     speichereViele: (liste) => anfrage(store, 'readwrite', s => { liste.forEach(o => s.put(o)); }),
     // Löschen ohne Vermerk (beim Übernehmen einer Löschung aus einem Import)
@@ -78,4 +91,13 @@ export const DB = {
   einstellung: (key, standard = null) =>
     anfrage('einstellungen', 'readonly', s => s.get(key)).then(v => v ?? standard),
   setzeEinstellung: (key, wert) => anfrage('einstellungen', 'readwrite', s => s.put(wert, key)),
+  // Vom Nutzer geänderte Einstellung, die in die Sicherung gehört
+  aendereEinstellung: async (key, wert) => {
+    await DB.setzeEinstellung(key, wert);
+    await vermerkeAenderung();
+  },
+  gesichert: async () => {
+    ungesichertBekannt = false;
+    await DB.setzeEinstellung('ungesichert', null);
+  },
 };

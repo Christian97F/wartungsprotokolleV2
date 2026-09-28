@@ -7,11 +7,11 @@ import { navigiere } from '../core/router.js';
 import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import { bildVerkleinern } from '../core/bild.js';
 import { thema, setzeThema } from '../core/thema.js';
-import { ERINNERUNG_STANDARD } from './erinnerung.js';
+import { ERINNERUNG_STANDARD, backupErinnerung, sicherungErstellen } from './erinnerung.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
   schluessel, loeschSchluessel, vorausgewaehlt, loeschungVorausgewaehlt, zeitstempelVon,
-  exportBackup, exportUebersichtCsv, kannTeilen,
+  exportUebersichtCsv, kannTeilen,
 } from '../io/austausch.js';
 
 const ARTEN = { anlagen: 'Anlagen', protokolle: 'Protokolle', vorlagen: 'Vorlagen' };
@@ -181,17 +181,19 @@ export async function importDialog(dateien) {
     .filter(Boolean).join(', ');
   const gesamt = [text, daten.firma && einstellungenText ? 'Einstellungen' : ''].filter(Boolean).join(', ');
   toast(gesamt ? `Importiert: ${gesamt}` : 'Nichts importiert', gesamt ? 'success' : 'info', 4500);
+  await backupErinnerung();
   return z;
 }
 
 export async function render(el) {
   setzeKopf({ titel: 'Daten & Einstellungen', eyebrow: 'Import · Export · Briefkopf' });
 
-  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder, erinnerung] = await Promise.all([
+  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder, erinnerung, ungesichert] = await Promise.all([
     DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(),
     DB.einstellung('firma', {}), DB.einstellung('techniker', ''), DB.einstellung('letztesBackup'),
     DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD),
     DB.einstellung('syncErinnerung', ERINNERUNG_STANDARD),
+    DB.einstellung('ungesichert'),
   ]);
   const f = firma || {};
   const teilen = kannTeilen();
@@ -209,7 +211,9 @@ export async function render(el) {
         </label>
         <div class="erinnerung-einstellung">
           <label class="check"><input type="checkbox" id="erinnerung-aktiv" ${erinnerung.aktiv ? 'checked' : ''}>
-            <span>Beim Start an das Aktualisieren erinnern, bis heute importiert wurde</span></label>
+            <span>Beim Start an den Import erinnern, bis heute importiert wurde</span></label>
+          <label class="check"><input type="checkbox" id="erinnerung-backup" ${erinnerung.backup !== false ? 'checked' : ''}>
+            <span>An das Hochladen einer Sicherung erinnern, solange Änderungen ungesichert sind (erst nach dem Import)</span></label>
           <label class="feld"><span class="feld-label">Hinweis in der Erinnerung</span>
             <textarea class="inp" rows="3" id="erinnerung-hinweis" placeholder="z. B. Dateien › iCloud Drive › Wartung › neueste Wartung_Backup-Datei wählen">${esc(erinnerung.hinweis)}</textarea>
             <span class="feld-hinweis">Wird mit der Sicherung auf andere Geräte übertragen.</span></label>
@@ -218,7 +222,8 @@ export async function render(el) {
 
       <section class="karte">
         <h2 class="karte-titel">${icon('export')} Export</h2>
-        <div class="backup-info ${tageSeitBackup === null || tageSeitBackup > 30 ? 'backup-alt' : ''}">
+        <div class="backup-info ${ungesichert || tageSeitBackup === null || tageSeitBackup > 30 ? 'backup-alt' : ''}">
+          ${ungesichert ? `<strong>Ungesicherte Änderungen seit ${formatDatum(ungesichert)}.</strong> ` : ''}
           ${letztesBackup ? `Letzte Sicherung: <strong>${formatDatum(letztesBackup)}</strong>${tageSeitBackup > 30 ? ' – eine neue Sicherung wird empfohlen.' : ''}` : 'Noch keine Sicherung erstellt. Die Daten liegen nur in diesem Browser.'}
         </div>
         <p class="hinweis">${anlagen.length} Anlagen · ${protokolle.length} Protokolle · ${vorlagen.length} eigene Vorlagen</p>
@@ -282,16 +287,13 @@ export async function render(el) {
     if (!x) return;
     try {
       if (x.dataset.x === 'csv') toast(`Exportiert: ${await exportUebersichtCsv()}`, 'success');
-      else {
-        const r = await exportBackup({ teilen: x.dataset.x === 'backup-teilen' });
-        if (r.r !== 'abgebrochen') toast(`Sicherung erstellt: ${r.name}`, 'success');
-      }
+      else await sicherungErstellen({ teilen: x.dataset.x === 'backup-teilen' });
     } catch (err) {
       toast(`Export fehlgeschlagen: ${err.message}`, 'error');
     }
   });
 
-  const speichereFirma = async () => { await DB.setzeEinstellung('firma', f); };
+  const speichereFirma = async () => { await DB.aendereEinstellung('firma', f); };
   el.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('change', () => {
     f[inp.dataset.f] = inp.value.trim();
     speichereFirma();
@@ -299,9 +301,9 @@ export async function render(el) {
   }));
   el.querySelectorAll('[data-us]').forEach(cb => cb.addEventListener('change', () => {
     usFelder[cb.dataset.us] = cb.checked;
-    DB.setzeEinstellung('unterschriftFelder', { ...usFelder });
+    DB.aendereEinstellung('unterschriftFelder', { ...usFelder });
   }));
-  el.querySelector('#techniker').addEventListener('change', e => DB.setzeEinstellung('techniker', e.target.value.trim()));
+  el.querySelector('#techniker').addEventListener('change', e => DB.aendereEinstellung('techniker', e.target.value.trim()));
   el.querySelector('#logo').addEventListener('change', async e => {
     const d = e.target.files[0];
     if (!d) return;
@@ -316,11 +318,13 @@ export async function render(el) {
   });
   el.querySelector('#logo-weg')?.addEventListener('click', async () => { delete f.logo; await speichereFirma(); neuLaden(); });
 
-  const speichereErinnerung = () => DB.setzeEinstellung('syncErinnerung', {
+  const speichereErinnerung = () => DB.aendereEinstellung('syncErinnerung', {
     aktiv: el.querySelector('#erinnerung-aktiv').checked,
+    backup: el.querySelector('#erinnerung-backup').checked,
     hinweis: el.querySelector('#erinnerung-hinweis').value.trim(),
   });
   el.querySelector('#erinnerung-aktiv').addEventListener('change', speichereErinnerung);
+  el.querySelector('#erinnerung-backup').addEventListener('change', speichereErinnerung);
   el.querySelector('#erinnerung-hinweis').addEventListener('change', async () => {
     await speichereErinnerung();
     toast('Hinweis gespeichert', 'success', 1500);

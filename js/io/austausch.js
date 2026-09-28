@@ -75,7 +75,10 @@ export async function exportBackup(opts) {
   ]);
   const name = `Wartung_Backup_${heuteIso()}.json`;
   const r = await ausgeben(alsJson(paket('backup', { anlagen, protokolle, vorlagen, geloescht, einstellungen })), name, opts);
-  if (r !== 'abgebrochen') await DB.setzeEinstellung('letztesBackup', jetztIso());
+  if (r !== 'abgebrochen') {
+    await DB.setzeEinstellung('letztesBackup', jetztIso());
+    await DB.gesichert();
+  }
   return { name, anlagen: anlagen.length, protokolle: protokolle.length, vorlagen: vorlagen.length, r };
 }
 

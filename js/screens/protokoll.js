@@ -478,6 +478,7 @@ async function abschliessen() {
   await DB.setzeEinstellung('techniker', p.meta.techniker);
   toast('Protokoll abgeschlossen', 'success');
   navigiere(`/bericht/${p.id}`);
+  import('./erinnerung.js').then(m => m.backupErinnerung());
 }
 
 async function entsperren() {
