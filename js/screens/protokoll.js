@@ -1,5 +1,5 @@
 import { DB } from '../core/db.js';
-import { esc, jetztIso, setzePfad, holePfad, debounce, formatZeit, formatDatum, erzeugeId } from '../core/util.js';
+import { esc, jetztIso, setzePfad, holePfad, debounce, formatZeit, formatDatum, erzeugeId, istLeer } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { toast, bestaetigen, menue, dialog } from '../core/ui.js';
 import { setzeKopf, setzeKopfStatus } from '../core/shell.js';
@@ -12,12 +12,15 @@ import { zahlAusText, segment, eingabe, checkbox, fotoLeiste } from '../sektione
 import { bildVerkleinern } from '../core/bild.js';
 import { exportProtokolle } from '../io/austausch.js';
 import { unterschriftFeld } from './unterschrift.js';
+import { berichtHtml } from '../io/bericht.js';
 
 let p = null;
 let usStandard = UNTERSCHRIFT_STANDARD;
 let el = null;
 let speichertGleich = null;
 let ausstehend = false;
+let vorher = null;   // letztes abgeschlossenes Protokoll derselben Anlage
+let firma = {};
 
 const gesperrt = () => p?.status === 'abgeschlossen';
 
@@ -77,9 +80,16 @@ function sektionHtml(sek, i) {
 function maengelHtml() {
   const a = auswertung(p);
   const abgeleitet = a.maengel.filter(x => x.quelle === 'pruefpunkt');
+  const vorMaengel = vorherigeMaengel();
   return `
     <header class="sek-kopf"><span class="sek-nr">${nr(p.plan.length + 1)}</span><h2>Mängel</h2>
       <span class="sek-stand">${a.maengel.length ? `<span class="zaehler zaehler-fehler">${a.maengel.length}</span>` : ''}</span></header>
+    ${vorMaengel.length ? `<div class="vm-box">
+      <div class="vm-kopf"><span>${icon('warnung')}Offene Mängel der Wartung vom ${formatDatum(vorher.datum)}</span>
+        ${vorMaengel.length > 1 ? '<button type="button" class="link" data-vm="alle">Alle übernehmen</button>' : ''}</div>
+      ${vorMaengel.map((m, i) => `<div class="vm-zeile"><span>${esc(m.uebernahmeText)}</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-vm="${i}">${icon('plus')}Übernehmen</button></div>`).join('')}
+    </div>` : ''}
     ${abgeleitet.length ? `<div class="mg-liste">${abgeleitet.map(m => `
       <div class="mg-zeile">
         <div class="mg-text"><span class="tag tag-fehler">Prüfpunkt</span> ${esc(m.text)}
@@ -131,6 +141,70 @@ function abschlussHtml() {
     </section>`;
 }
 
+// ── Vorwerte der letzten Wartung ─────────────────────────────
+
+const STATUS_TEXT = { ok: 'i.O.', mangel: 'Mangel', ng: 'n.g.' };
+
+function vorwerteAn() {
+  try { return localStorage.getItem('vorwerte') !== 'aus'; } catch { return true; }
+}
+
+function letztesProtokoll(liste) {
+  return liste
+    .filter(x => x.id !== p.id && x.status === 'abgeschlossen' && (x.datum || '') <= (p.datum || ''))
+    .sort((a, b) => (b.datum || '').localeCompare(a.datum || '') || (b.abgeschlossen_am || '').localeCompare(a.abgeschlossen_am || ''))[0] || null;
+}
+
+// Hängt an jedes Eingabefeld / jede Bewertung den Wert der letzten Wartung (gleicher Pfad)
+function vorwerteEinfuegen(root) {
+  root.querySelectorAll('.vorwert').forEach(x => x.remove());
+  if (!vorher) return;
+  root.querySelectorAll('[data-w^="werte."]:not([type="checkbox"]):not([data-w$=".notiz"])').forEach(inp => {
+    const pfad = inp.dataset.w;
+    let wert = holePfad(vorher, pfad);
+    let label = 'zuletzt';
+    // Beim Zählerstand „vorher“ ist der Stand nach der letzten Wartung der Vergleichswert
+    if (pfad.endsWith('.vor')) {
+      const nach = holePfad(vorher, pfad.replace(/\.vor$/, '.nach'));
+      if (!istLeer(nach)) { wert = nach; label = 'zuletzt nach Wartung'; }
+    }
+    if (istLeer(wert) || typeof wert === 'object') return;
+    const einheit = inp.closest('.mit-einheit')?.querySelector('.einheit')?.textContent || '';
+    const text = typeof wert === 'number' ? `${String(wert).replace('.', ',')}${einheit ? ` ${einheit}` : ''}` : String(wert);
+    (inp.closest('.mit-einheit') || inp).insertAdjacentHTML('afterend', `<span class="vorwert">${esc(label)}: ${esc(text)}</span>`);
+  });
+  root.querySelectorAll('.segment').forEach(seg => {
+    const pfad = seg.querySelector('[data-w-set^="werte."]')?.dataset.wSet;
+    const wert = pfad && holePfad(vorher, pfad);
+    if (!wert || typeof wert === 'object') return;
+    let text = STATUS_TEXT[wert] || wert;
+    const notiz = wert === 'mangel' && holePfad(vorher, pfad.replace(/\.s$/, '.notiz'));
+    if (notiz) text += ` – ${notiz}`;
+    seg.insertAdjacentHTML('afterend', `<span class="vorwert ${wert === 'mangel' ? 'vorwert-mangel' : ''}">zuletzt: ${esc(text)}</span>`);
+  });
+}
+
+function vorherigeMaengel() {
+  if (!vorher) return [];
+  const vorhanden = new Set(p.maengel.map(m => m.text));
+  return auswertung(vorher).maengel
+    .filter(m => !m.behoben)
+    .map(m => ({ ...m, uebernahmeText: m.notiz ? `${m.text} – ${m.notiz}` : m.text }))
+    .filter(m => !vorhanden.has(m.uebernahmeText));
+}
+
+function letztenBerichtZeigen() {
+  dialog({
+    titel: `Letzte Wartung · ${formatDatum(vorher.datum)}`,
+    breit: true,
+    inhalt: `<div class="papier-rahmen vorschau-dlg">${berichtHtml(vorher, firma, usStandard)}</div>`,
+    onOpen: (dlg) => {
+      const r = dlg.querySelector('.papier-rahmen');
+      r.style.setProperty('--zoom', Math.min(1, r.clientWidth / 794).toFixed(3));
+    },
+  });
+}
+
 function navHtml() {
   const eintraege = [
     ['-meta', 'Allgemein'],
@@ -140,6 +214,10 @@ function navHtml() {
   ];
   return `
     <div class="fortschritt"><div class="fs-balken"><span id="fs-balken"></span></div><span id="fs-text"></span></div>
+    ${vorher ? `<div class="vorwerte-leiste">
+      <label class="check"><input type="checkbox" id="vorwerte-an" ${vorwerteAn() ? 'checked' : ''}><span>Vorwerte vom ${formatDatum(vorher.datum)}</span></label>
+      <button type="button" class="link" id="letzter-bericht">${icon('auge')}Letzter Bericht</button>
+    </div>` : ''}
     <nav class="prot-sprung">${eintraege.map(([id, t]) =>
       `<a href="#s-${esc(id)}" data-sprung="${esc(id)}"><span class="sprung-punkt" data-punkt="${esc(id)}"></span>${esc(t)}</a>`).join('')}
     </nav>`;
@@ -147,7 +225,7 @@ function navHtml() {
 
 function zeichne() {
   el.innerHTML = `
-    <div class="prot">
+    <div class="prot ${vorwerteAn() ? 'mit-vorwerten' : ''}">
       <aside class="prot-nav">${navHtml()}</aside>
       <div class="prot-inhalt">
         ${gesperrt() ? `<div class="banner banner-ok">${icon('schloss')}
@@ -170,6 +248,12 @@ function zeichne() {
   unterschriftFeld(el.querySelector('#us-kunde'), p.unterschriften?.kunde, v => { p.unterschriften.kunde = v; geaendert(); }, { gesperrt });
   el.querySelector('#abschliessen')?.addEventListener('click', abschliessen);
   el.querySelector('#entsperren')?.addEventListener('click', entsperren);
+  el.querySelector('#letzter-bericht')?.addEventListener('click', letztenBerichtZeigen);
+  el.querySelector('#vorwerte-an')?.addEventListener('change', e => {
+    try { localStorage.setItem('vorwerte', e.target.checked ? 'an' : 'aus'); } catch { /* privat */ }
+    el.querySelector('.prot').classList.toggle('mit-vorwerten', e.target.checked);
+  });
+  vorwerteEinfuegen(el);
   aktualisiereFortschritt();
 }
 
@@ -178,7 +262,9 @@ function sektionNeuZeichnen(sekId) {
   const alt = el.querySelector(`[data-sek="${CSS.escape(sekId)}"]`);
   const tmp = document.createElement('div');
   tmp.innerHTML = sektionHtml(p.plan[i], i);
-  alt.replaceWith(tmp.firstElementChild);
+  const neu = tmp.firstElementChild;
+  vorwerteEinfuegen(neu);
+  alt.replaceWith(neu);
 }
 
 function maengelNeuZeichnen() {
@@ -320,6 +406,19 @@ function binde() {
       return;
     }
 
+    const vm = e.target.closest('[data-vm]');
+    if (vm) {
+      const liste = vorherigeMaengel();
+      const auswahl = vm.dataset.vm === 'alle' ? liste : [liste[Number(vm.dataset.vm)]];
+      for (const m of auswahl) {
+        p.maengel.push({ id: erzeugeId('m'), text: m.uebernahmeText, prio: m.prio || 'mittel', behoben: false, fotos: m.fotos ? [...m.fotos] : [] });
+      }
+      maengelNeuZeichnen();
+      geaendert();
+      toast(auswahl.length === 1 ? 'Mangel übernommen' : `${auswahl.length} Mängel übernommen`, 'success');
+      return;
+    }
+
     const mAktion = e.target.closest('[data-m-aktion]');
     if (mAktion) {
       if (mAktion.dataset.mAktion === 'neu') {
@@ -420,6 +519,7 @@ function kopf() {
       await jetztSpeichern();
       if (id === 'bericht') return navigiere(`/bericht/${p.id}`);
       menue(btn, [
+        ...(vorher ? [{ label: `Letzte Wartung ansehen (${formatDatum(vorher.datum)})`, icon: 'auge', aktion: letztenBerichtZeigen }] : []),
         { label: 'Prüfplan der Anlage bearbeiten', icon: 'einstellungen', aktion: () => navigiere(`/anlage/${encodeURIComponent(p.anlageId)}?tab=plan`) },
         { label: 'Als Datei exportieren', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportProtokolle([p.id], { teilen: true })}`, 'success') },
         '-',
@@ -460,6 +560,8 @@ export async function render(container, params, query) {
     const anlage = await DB.anlagen.hole(p.anlageId);
     if (anlage) planAktualisieren(p, anlage);
   }
+  vorher = letztesProtokoll(await DB.protokolle.vonAnlage(p.anlageId));
+  firma = await DB.einstellung('firma', {});
 
   kopf();
   zeichne();

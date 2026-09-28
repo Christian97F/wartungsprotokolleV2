@@ -18,6 +18,13 @@ export default {
   neuesElement(liste, art, sek) {
     const ids = sek.elemente.map(e => e.id);
     if (art === 'ueberschrift') return { id: eindeutigeId('gruppe', ids), art: 'ueberschrift', label: '' };
+    if (art === 'unterdruck') {
+      return {
+        id: eindeutigeId('unterdruck', ids), label: 'Unterdruckleckagewächter', aktiv: true, bewertung: true,
+        messungen: ['Pumpe ein', 'Alarm ein', 'Alarm aus', 'Pumpe aus']
+          .map((label, i) => ({ id: ['pumpe_ein', 'alarm_ein', 'alarm_aus', 'pumpe_aus'][i], label, einheit: 'mbar' })),
+      };
+    }
     return { id: eindeutigeId('punkt', ids), label: '', aktiv: true, bewertung: true, messungen: [] };
   },
 
@@ -29,7 +36,12 @@ export default {
       { key: 'messungen', label: 'Messwerte', typ: 'messungen', platzhalter: 'z. B. Temperatur [°C]' },
       { key: 'bewertung', label: 'Bewertung', typ: 'bool', breite: '.6' },
     ], {
-      neu: [{ label: 'Prüfpunkt' }, { label: 'Zwischenüberschrift', art: 'ueberschrift' }],
+      neu: [
+        { label: 'Prüfpunkt' },
+        // Vorlage für Unterdruckwächter nur dort anbieten, wo sie hingehört
+        ...(/leck|tank/i.test(`${sek.id} ${sek.titel}`) ? [{ label: 'Unterdruckwächter', art: 'unterdruck' }] : []),
+        { label: 'Zwischenüberschrift', art: 'ueberschrift' },
+      ],
       leerText: 'Noch keine Prüfpunkte.',
     });
   },

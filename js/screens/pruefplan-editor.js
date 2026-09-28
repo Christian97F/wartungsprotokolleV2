@@ -169,7 +169,7 @@ export function pruefplanEditor(container, plan, onChange) {
       sektionNeuZeichnen(i);
       if (eAktion.dataset.eAktion === 'neu') {
         const felder = container.querySelectorAll(`.pp-sektion[data-i="${i}"] [data-e-liste-root="${eAktion.dataset.eListe}"] .le-zeile`);
-        felder[felder.length - 1]?.querySelector('input[type="text"]')?.focus();
+        felder[felder.length - 1]?.querySelector('input[type="text"]')?.select();
       }
       geaendert();
     }

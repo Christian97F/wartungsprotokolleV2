@@ -149,7 +149,7 @@ const NEA = {
       aus('leck_aggregat', 'Aggregat'),
       aus('leck_haupttank', 'Haupttank'),
       aus('leck_tagestank', 'Tagestank'),
-    ], { hinweis: 'Für Unterdruckleckagewächter die Messwerte „Pumpe ein [mbar]; Alarm ein [mbar]; Alarm aus [mbar]; Pumpe aus [mbar]“ eintragen.' }),
+    ]),
     checkliste('Elektronikgeraete', 'Elektronikgeräte', [
       aus('ueberstromrelais', 'Überstromrelais'),
       aus('kurzschlussrelais', 'Kurzschlussrelais'),
