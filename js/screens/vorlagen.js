@@ -7,6 +7,7 @@ import { navigiere } from '../core/router.js';
 import { neueVorlage, vorlageKopie } from '../core/model.js';
 import { alleVorlagen, holeVorlage } from '../vorlagen/vorlagen.js';
 import { exportVorlage } from '../io/austausch.js';
+import { vorlagenEinspielen } from '../core/migration.js';
 import { pruefplanEditor } from './pruefplan-editor.js';
 import { stammdatenGruppenEditor } from './stammdaten-editor.js';
 
@@ -41,9 +42,7 @@ export async function renderListe(el) {
         <p class="ak-meta">${esc(v.beschreibung || '')}</p>
         <p class="ak-meta ak-technik">${v.sektionen.length} Abschnitte · ${v.stammdaten.reduce((n, g) => n + g.felder.length, 0)} Stammdatenfelder · ${nutzung(v.id)} Anlagen</p>
         <div class="ak-aktionen">
-          ${v.builtin
-            ? `<button class="btn btn-ghost" data-kopie="${esc(v.id)}">${icon('kopie')}Duplizieren & anpassen</button>`
-            : `<a class="btn btn-ghost" href="#/vorlage/${esc(v.id)}">${icon('bearbeiten')}Bearbeiten</a>`}
+          <a class="btn btn-ghost" href="#/vorlage/${esc(v.id)}">${icon('bearbeiten')}Bearbeiten</a>
           <a class="btn btn-ghost" href="#/anlage/neu?vorlage=${encodeURIComponent(v.id)}">${icon('plus')}Anlage</a>
         </div>
       </article>`).join('')}
@@ -51,8 +50,17 @@ export async function renderListe(el) {
 
   el.innerHTML = `
     <p class="einleitung">Vorlagen legen fest, welche Stammdaten und Prüfabschnitte eine neue Anlage bekommt. Jede Anlage kann ihren Prüfplan danach individuell anpassen.</p>
-    ${gruppe('Eigene Vorlagen', vorlagen.filter(v => !v.builtin))}
-    ${gruppe('Mitgeliefert', vorlagen.filter(v => v.builtin))}`;
+    ${gruppe('Eigene Vorlagen', vorlagen.filter(v => v.herkunft !== 'mitgeliefert'))}
+    ${gruppe('Mitgeliefert', vorlagen.filter(v => v.herkunft === 'mitgeliefert'))}
+    <div class="knopfreihe">
+      <button class="btn btn-ghost btn-sm" id="wiederherstellen">${icon('kopie')}Mitgelieferte Vorlagen wiederherstellen</button>
+    </div>`;
+
+  el.querySelector('#wiederherstellen').onclick = async () => {
+    const n = await vorlagenEinspielen({ auchGeloeschte: true });
+    toast(n ? `${n} Vorlage(n) wiederhergestellt` : 'Alle mitgelieferten Vorlagen sind vorhanden', n ? 'success' : 'info');
+    if (n) navigiere('/vorlagen', { ersetzen: true });
+  };
 
   const duplizieren = async (v) => {
     const name = await eingabe('Vorlage duplizieren', { label: 'Name der neuen Vorlage', wert: `${v.name} (eigene)` });
@@ -63,21 +71,20 @@ export async function renderListe(el) {
   };
 
   el.addEventListener('click', async e => {
-    const k = e.target.closest('[data-kopie]');
-    if (k) return duplizieren(vorlagen.find(v => v.id === k.dataset.kopie));
     const m = e.target.closest('[data-menue]');
     if (!m) return;
     const v = vorlagen.find(x => x.id === m.dataset.menue);
     menue(m, [
-      ...(v.builtin ? [] : [{ label: 'Bearbeiten', icon: 'bearbeiten', aktion: () => navigiere(`/vorlage/${v.id}`) }]),
+      { label: 'Bearbeiten', icon: 'bearbeiten', aktion: () => navigiere(`/vorlage/${v.id}`) },
       { label: 'Duplizieren', icon: 'kopie', aktion: () => duplizieren(v) },
       { label: 'Exportieren', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportVorlage(v, { teilen: true })}`, 'success') },
-      ...(v.builtin ? [] : ['-', { label: 'Löschen', icon: 'loeschen', gefahr: true, aktion: async () => {
+      '-',
+      { label: 'Löschen', icon: 'loeschen', gefahr: true, aktion: async () => {
         if (!await bestaetigen(`Vorlage „${v.name}“ löschen?\nBestehende Anlagen behalten ihren Prüfplan.`, { titel: 'Vorlage löschen', ja: 'Löschen' })) return;
         await DB.vorlagen.loesche(v.id);
         toast('Vorlage gelöscht');
         navigiere('/vorlagen', { ersetzen: true });
-      } }]),
+      } },
     ]);
   });
 }
@@ -107,11 +114,6 @@ export async function renderEditor(el, params, query) {
   geaendert = false;
   vorlage = await holeVorlage(params.id);
   if (!vorlage) throw new Error('Vorlage nicht gefunden');
-  if (vorlage.builtin) {
-    navigiere('/vorlagen', { ersetzen: true });
-    toast('Mitgelieferte Vorlagen bitte duplizieren, um sie anzupassen', 'warning');
-    return;
-  }
 
   setzeKopf({
     titel: vorlage.name,

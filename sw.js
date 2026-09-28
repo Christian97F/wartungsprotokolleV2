@@ -2,7 +2,7 @@
 // Strategie: Cache zuerst, im Hintergrund aktualisieren (stale-while-revalidate).
 // Bei jeder Änderung an den App-Dateien VERSION erhöhen.
 
-const VERSION = 'v2.0.2';
+const VERSION = 'v2.1.0';
 const CACHE = `wartung-${VERSION}`;
 const FONT_CACHE = 'wartung-fonts';
 
@@ -21,6 +21,7 @@ const ASSETS = [
   './css/screens.css',
   './css/tokens.css',
   './js/app.js',
+  './js/core/bild.js',
   './js/core/db.js',
   './js/core/icons.js',
   './js/core/migration.js',
@@ -41,11 +42,11 @@ const ASSETS = [
   './js/screens/stammdaten-editor.js',
   './js/screens/unterschrift.js',
   './js/screens/vorlagen.js',
-  './js/sektionen/helfer.js',
   './js/sektionen/aufgaben.js',
   './js/sektionen/batterien.js',
   './js/sektionen/checkliste.js',
   './js/sektionen/felder.js',
+  './js/sektionen/helfer.js',
   './js/sektionen/messreihe.js',
   './js/sektionen/registry.js',
   './js/sektionen/tabelle.js',

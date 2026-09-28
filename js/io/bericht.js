@@ -2,7 +2,7 @@
 // Browser-Druckdialog als PDF gespeichert oder als eigenständige HTML-Datei exportiert.
 import { esc, formatDatum, formatMonat, istLeer, formatZahl } from '../core/util.js';
 import { modul } from '../sektionen/registry.js';
-import { berichtSektion } from '../sektionen/helfer.js';
+import { berichtSektion, fotosBericht } from '../sektionen/helfer.js';
 import { KERN_STAMMDATEN, auswertung, ERGEBNISSE } from '../core/model.js';
 
 const PRIO = { hoch: 'hoch', mittel: 'mittel', niedrig: 'niedrig' };
@@ -40,7 +40,7 @@ export function berichtHtml(p, firma = {}) {
       <thead><tr><th style="width:8mm">Nr.</th><th>Beschreibung</th><th style="width:20mm">Priorität</th><th style="width:20mm">Status</th></tr></thead>
       <tbody>${a.maengel.map((m, i) => `<tr class="${m.behoben ? '' : 'b-mangel'}">
         <td>${i + 1}</td>
-        <td>${esc(m.text)}${m.notiz ? `<div class="b-notiz">${esc(m.notiz)}</div>` : ''}</td>
+        <td>${esc(m.text)}${m.notiz ? `<div class="b-notiz">${esc(m.notiz)}</div>` : ''}${fotosBericht(m.fotos)}</td>
         <td>${esc(PRIO[m.prio] || '–')}</td>
         <td>${m.behoben ? '✓ behoben' : '<strong>offen</strong>'}</td></tr>`).join('')}
       </tbody></table>` : '<p class="b-leer">Keine Mängel festgestellt.</p>';
@@ -58,7 +58,12 @@ export function berichtHtml(p, firma = {}) {
 
   return `
     <article class="bericht">
-      <div class="b-lauffuss">${fuss}</div>
+      <!-- Kopf/Fuß der Tabelle wiederholen sich beim Druck auf jeder Seite und ersetzen den
+           Seitenrand; @page hat Rand 0, damit der Browser dort keine URL/Datum druckt. -->
+      <table class="b-seite">
+      <thead><tr><td><div class="b-rand-oben"></div></td></tr></thead>
+      <tfoot><tr><td><div class="b-rand-unten"><span>${fuss}</span></div></td></tr></tfoot>
+      <tbody><tr><td>
       <header class="b-kopf">
         <div class="b-firma">
           ${firma.logo ? `<img class="b-logo" src="${firma.logo}" alt="">` : ''}
@@ -104,6 +109,8 @@ export function berichtHtml(p, firma = {}) {
           ${zeigeKunde ? unterschrift(u.kunde, u.kunde_name, 'Kunde / Betreiber') : ''}
         </div>
       </section>` : ''}
+      </td></tr></tbody>
+      </table>
       ${p.status !== 'abgeschlossen' ? '<div class="b-wasserzeichen">ENTWURF</div>' : ''}
     </article>`;
 }

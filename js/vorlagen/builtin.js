@@ -1,4 +1,5 @@
-// Mitgelieferte Vorlagen (schreibgeschützt, können dupliziert werden).
+// Mitgelieferte Vorlagen. Werden beim ersten Start in die Datenbank übernommen
+// und sind dann wie eigene Vorlagen bearbeit- und löschbar.
 // Die IDs der NEA-Vorlage entsprechen den Schlüsseln des alten Datenformats,
 // damit die Migration Werte 1:1 übernehmen kann.
 
@@ -15,6 +16,16 @@ const checkliste = (id, titel, elemente, extra = {}) => ({ id, typ: 'checkliste'
 
 // ── Netzersatzanlage ─────────────────────────────────────────
 
+// Nur Stammdaten (Gruppe „intern“) – erscheinen nicht im Bericht
+export const BETRIEBSSTOFFE = () => [
+  zahl('Menge_Motoroel', 'Motoröl – Menge', 'l'),
+  feld('Typ_Motoroel', 'Motoröl – Sorte'),
+  zahl('Menge_Kuehlmittel_intern', 'Kühlmittel intern – Menge', 'l'),
+  feld('Typ_Kuehlmittel_intern', 'Kühlmittel intern – Sorte'),
+  zahl('Menge_Kuehlmittel_extern', 'Kühlmittel extern – Menge', 'l'),
+  feld('Typ_Kuehlmittel_extern', 'Kühlmittel extern – Sorte'),
+];
+
 const STOERMELDUNGEN = [
   'Öldruckmangel', 'Motor-Übertemperatur', 'Kühlwassermangel', 'Fehlstart', 'Batterieunterspannung',
   'Überlast', 'Kurzschluss', 'Leckage', 'Not-Aus betätigt', 'Störung Motorregler', 'Sicherungsfall', 'Kraftstoffmangel',
@@ -22,7 +33,7 @@ const STOERMELDUNGEN = [
 
 const NEA = {
   id: 'nea',
-  builtin: true,
+  herkunft: 'mitgeliefert',
   name: 'Netzersatzanlage (NEA)',
   kategorie: 'Stromerzeugung',
   beschreibung: 'Stationäre oder mobile Stromerzeugungsaggregate mit Notstromautomatik – Probelauf, Batterien, Störmeldungen, Schaltanlage.',
@@ -48,12 +59,7 @@ const NEA = {
       feld('NSA_Typ', 'Typ'),
       feld('NSA_Serien_NR', 'Seriennummer'),
     ] },
-    { id: 'kuehlung', titel: 'Kühlmittel', felder: [
-      zahl('Menge_Kuehlmittel_intern', 'Menge intern', 'l'),
-      feld('Typ_Kuehlmittel_intern', 'Typ intern'),
-      zahl('Menge_Kuehlmittel_extern', 'Menge extern', 'l'),
-      feld('Typ_Kuehlmittel_extern', 'Typ extern'),
-    ] },
+    { id: 'kuehlung', titel: 'Betriebsstoffe', intern: true, felder: BETRIEBSSTOFFE() },
     { id: 'intervalle', titel: 'Wartungsintervalle', intern: true, felder: [
       zahl('Oelwechsel_Intervall', 'Ölwechsel', 'Monate'),
       zahl('DGUV_Intervall', 'DGUV V3', 'Monate'),
@@ -220,7 +226,7 @@ const VS = 'Versammlungsstätte';
 
 const DIN6280 = {
   id: 'din6280',
-  builtin: true,
+  herkunft: 'mitgeliefert',
   name: 'Aggregat & Aggregateraum (DIN 6280-13)',
   kategorie: 'Stromerzeugung',
   beschreibung: 'Praxisorientierte Prüfliste für Aggregat und Aufstellraum, ohne DGUV V3 und Umschalteinrichtung. Vor Einsatz gegen Norm und Herstellerhandbuch abgleichen.',
@@ -311,7 +317,7 @@ const DIN6280 = {
 
 const USV = {
   id: 'usv',
-  builtin: true,
+  herkunft: 'mitgeliefert',
   name: 'USV-Anlage',
   kategorie: 'Stromversorgung',
   beschreibung: 'Unterbrechungsfreie Stromversorgung: Sichtprüfung, Messwerte, Batterieanlage, Funktionstest.',
@@ -361,7 +367,7 @@ const USV = {
 
 const LEER = {
   id: 'leer',
-  builtin: true,
+  herkunft: 'mitgeliefert',
   name: 'Leere Vorlage',
   kategorie: 'Allgemein',
   beschreibung: 'Ohne Prüfpunkte – der Prüfplan wird komplett selbst aufgebaut.',

@@ -27,7 +27,6 @@
 .bericht *, .bericht *::before, .bericht *::after { box-sizing: border-box; }
 .bericht h1, .bericht h2 { font-family: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif; margin: 0; text-transform: uppercase; }
 
-.b-lauffuss { display: none; }
 
 /* Kopf */
 .b-kopf {
@@ -128,6 +127,8 @@
 }
 .b-mangel td { background: #FDF0EE; }
 .b-notiz { font-size: 8pt; color: var(--b-fehler); margin-top: .5mm; }
+.b-fotos { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 1.5mm; }
+.b-fotos img { height: 42mm; max-width: 56mm; object-fit: cover; border-radius: 1mm; border: 0.5px solid var(--b-line); break-inside: avoid; }
 .b-tag { font-family: "IBM Plex Mono", monospace; font-size: 6.5pt; font-weight: 600; padding: .2mm 1.2mm; border: 0.5px solid var(--b-line); border-radius: .8mm; color: var(--b-soft); }
 
 .b-status { font-weight: 600; font-size: 8.5pt; }
@@ -165,24 +166,22 @@
   pointer-events: none;
 }
 
-@page {
-  size: A4;
-  margin: 12mm 14mm 16mm;
-  @bottom-right {
-    content: "Seite " counter(page) " / " counter(pages);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 7pt;
-    color: #7C8AA0;
-  }
-}
+/* Seitenrand über die wiederholten Tabellenzeilen, nicht über @page:
+   bei Rand 0 drucken Browser keine Kopf-/Fußzeilen (URL, Datum, Titel). */
+.b-seite { width: 100%; border-collapse: collapse; }
+.b-seite > thead > tr > td, .b-seite > tfoot > tr > td, .b-seite > tbody > tr > td { padding: 0; }
+.b-rand-oben, .b-rand-unten { display: none; }
+
+@page { size: A4; margin: 0; }
 
 @media print {
-  .bericht { width: auto; min-height: 0; padding: 0; box-shadow: none !important; margin: 0 !important; }
-  .b-lauffuss {
-    display: block;
-    position: fixed;
-    bottom: -9mm;
-    left: 0;
+  .bericht { width: auto; min-height: 0; padding: 0 14mm; box-shadow: none !important; margin: 0 !important; }
+  .b-rand-oben { display: block; height: 12mm; }
+  .b-rand-unten {
+    display: flex;
+    align-items: flex-end;
+    height: 14mm;
+    padding-bottom: 6mm;
     font-family: "IBM Plex Mono", monospace;
     font-size: 7pt;
     color: #7C8AA0;

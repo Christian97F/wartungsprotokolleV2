@@ -8,7 +8,8 @@ import {
   neuesProtokoll, planAktualisieren, auswertung, ergebnisVorschlag, anlagenTitel, ERGEBNISSE, UNTERSCHRIFT_STANDARD,
 } from '../core/model.js';
 import { modul } from '../sektionen/registry.js';
-import { zahlAusText, segment, eingabe, checkbox } from '../sektionen/helfer.js';
+import { zahlAusText, segment, eingabe, checkbox, fotoLeiste } from '../sektionen/helfer.js';
+import { bildVerkleinern } from '../core/bild.js';
 import { exportProtokolle } from '../io/austausch.js';
 import { unterschriftFeld } from './unterschrift.js';
 
@@ -83,6 +84,7 @@ function maengelHtml() {
         <div class="mg-text"><span class="tag tag-fehler">Prüfpunkt</span> ${esc(m.text)}
           ${m.notiz ? `<div class="mg-notiz">${esc(m.notiz)}</div>` : ''}</div>
         <label class="check"><input type="checkbox" data-w="${esc(m.pfad)}" data-wt="bool" data-mg ${m.behoben ? 'checked' : ''}><span>behoben</span></label>
+        ${m.fotoPfad ? fotoLeiste(m.fotoPfad, m.fotos) : ''}
       </div>`).join('')}</div>` : ''}
     <div class="mg-liste">${p.maengel.map((m, i) => `
       <div class="mg-zeile mg-manuell">
@@ -90,6 +92,7 @@ function maengelHtml() {
         ${segment(`maengel.${i}.prio`, m.prio, [['niedrig', 'niedrig'], ['mittel', 'mittel'], ['hoch', 'hoch']], 'segment-prio')}
         <label class="check"><input type="checkbox" data-w="maengel.${i}.behoben" data-wt="bool" data-mg ${m.behoben ? 'checked' : ''}><span>behoben</span></label>
         <button type="button" class="btn-icon gefahr" data-m-aktion="loeschen" data-i="${i}" title="Entfernen">${icon('loeschen')}</button>
+        ${fotoLeiste(`maengel.${i}.fotos`, m.fotos)}
       </div>`).join('')}</div>
     ${!a.maengel.length ? '<p class="hinweis">Keine Mängel. Prüfpunkte mit „Mangel“ erscheinen hier automatisch.</p>' : ''}
     <button type="button" class="btn btn-ghost" data-m-aktion="neu">${icon('plus')}Weiteren Mangel erfassen</button>`;
@@ -233,6 +236,41 @@ function binde() {
     const inp = e.target.closest('[data-w]');
     if (inp && inp.type !== 'checkbox') schreibe(inp);
   });
+  // ── Fotos ──
+  const fotosGeaendert = (pfad) => {
+    geaendert();
+    const sekId = pfad.match(/^werte\.([^.]+)\./)?.[1];
+    if (sekId) sektionNeuZeichnen(sekId);
+    maengelNeuZeichnen();
+  };
+  el.addEventListener('change', async e => {
+    const inp = e.target.closest('[data-foto-neu]');
+    if (!inp || gesperrt() || !inp.files.length) return;
+    const pfad = inp.dataset.fotoNeu;
+    const dateien = [...inp.files];
+    inp.value = '';
+    try {
+      const neu = await Promise.all(dateien.map(d => bildVerkleinern(d)));
+      const liste = holePfad(p, pfad) || [];
+      setzePfad(p, pfad, [...liste, ...neu]);
+      fotosGeaendert(pfad);
+    } catch (err) {
+      toast(`Foto konnte nicht gelesen werden: ${err.message}`, 'error');
+    }
+  });
+  el.addEventListener('click', async e => {
+    const zeigen = e.target.closest('[data-foto-zeigen]');
+    if (zeigen) {
+      dialog({ titel: 'Foto', breit: true, inhalt: `<img class="foto-gross" src="${zeigen.src}" alt="">` });
+      return;
+    }
+    const weg = e.target.closest('[data-foto-weg]');
+    if (!weg || gesperrt()) return;
+    if (!await bestaetigen('Foto entfernen?', { ja: 'Entfernen' })) return;
+    holePfad(p, weg.dataset.fotoWeg).splice(Number(weg.dataset.i), 1);
+    fotosGeaendert(weg.dataset.fotoWeg);
+  });
+
   el.addEventListener('change', e => {
     const inp = e.target.closest('[data-w]');
     if (!inp) return;

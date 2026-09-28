@@ -59,6 +59,25 @@ export function statusSchalter(pfad, wert) {
   return segment(pfad, wert, [['ok', 'i.O.'], ['mangel', 'Mangel'], ['ng', 'n.g.']], 'segment-status');
 }
 
+// Fotoleiste: Aufnahme mit Kamera (capture) oder Auswahl aus der Mediathek
+export function fotoLeiste(pfad, fotos = []) {
+  const p = esc(pfad);
+  return `<div class="fotos">
+    ${fotos.map((f, i) => `<figure class="foto">
+      <img src="${f}" alt="Foto ${i + 1}" data-foto-zeigen="${p}" data-i="${i}">
+      <button type="button" class="foto-weg" data-foto-weg="${p}" data-i="${i}" title="Foto entfernen">${icon('schliessen')}</button>
+    </figure>`).join('')}
+    <label class="btn btn-ghost btn-sm foto-neu">${icon('kamera')}Foto
+      <input type="file" accept="image/*" capture="environment" data-foto-neu="${p}" hidden></label>
+    <label class="btn btn-ghost btn-sm foto-neu">${icon('bild')}Bild wählen
+      <input type="file" accept="image/*" multiple data-foto-neu="${p}" hidden></label>
+  </div>`;
+}
+
+export function fotosBericht(fotos = []) {
+  return fotos.length ? `<div class="b-fotos">${fotos.map(f => `<img src="${f}" alt="">`).join('')}</div>` : '';
+}
+
 export function checkbox(pfad, wert, label) {
   return `<label class="check"><input type="checkbox" data-w="${esc(pfad)}" data-wt="bool" ${wert ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 }

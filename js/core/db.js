@@ -44,13 +44,25 @@ function anfrage(store, modus, fn) {
   }));
 }
 
+// Gelöschte IDs merken, damit ein Abgleich zwischen Geräten Löschungen übernimmt
+async function vermerkeLoeschung(store, id) {
+  const liste = await DB.einstellung('geloescht', {});
+  liste[`${store}:${id}`] = new Date().toISOString();
+  await DB.setzeEinstellung('geloescht', liste);
+}
+
 function crud(store) {
   return {
     alle: () => anfrage(store, 'readonly', s => s.getAll()),
     hole: (id) => anfrage(store, 'readonly', s => s.get(id)),
     speichere: (obj) => anfrage(store, 'readwrite', s => s.put(obj)),
-    loesche: (id) => anfrage(store, 'readwrite', s => s.delete(id)),
+    loesche: async (id) => {
+      await anfrage(store, 'readwrite', s => s.delete(id));
+      await vermerkeLoeschung(store, id);
+    },
     speichereViele: (liste) => anfrage(store, 'readwrite', s => { liste.forEach(o => s.put(o)); }),
+    // Löschen ohne Vermerk (beim Übernehmen einer Löschung aus einem Import)
+    entferne: (id) => anfrage(store, 'readwrite', s => s.delete(id)),
   };
 }
 

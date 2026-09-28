@@ -11,7 +11,7 @@ import {
 } from '../io/austausch.js';
 
 const ARTEN = { anlagen: 'Anlagen', protokolle: 'Protokolle', vorlagen: 'Vorlagen' };
-const STATUS = { neu: 'neu', neuer: 'neuer als vorhanden', aelter: 'älter als vorhanden', gleich: 'unverändert' };
+const STATUS = { neu: 'neu', neuer: 'neuer als vorhanden', aelter: 'älter als vorhanden', gleich: 'unverändert', geloescht: 'hier gelöscht' };
 
 export async function importDialog(dateien) {
   let analyse;
@@ -26,8 +26,8 @@ export async function importDialog(dateien) {
 
   const zaehle = (art, st) => analyse[art].filter(x => x.status === st).length;
   const leer = Object.keys(ARTEN).every(a => !analyse[a].length);
-  if (leer && !analyse.einstellungen) { toast('Die Datei enthält keine Daten', 'warning'); return null; }
-  const konflikte = Object.keys(ARTEN).some(a => zaehle(a, 'neuer') + zaehle(a, 'aelter') > 0);
+  if (leer && !analyse.loeschen.length && !analyse.einstellungen) { toast('Die Datei enthält keine Daten', 'warning'); return null; }
+  const konflikte = analyse.loeschen.length || Object.keys(ARTEN).some(a => zaehle(a, 'neuer') + zaehle(a, 'aelter') + zaehle(a, 'geloescht') > 0);
 
   const { wert, daten } = await dialog({
     titel: 'Import prüfen',
@@ -40,12 +40,14 @@ export async function importDialog(dateien) {
           <tr><th>${l}</th>${['neu', 'neuer', 'aelter', 'gleich'].map(st => `<td>${zaehle(a, st) || '–'}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
+      ${analyse.loeschen.length ? `<div class="banner banner-warn">${icon('loeschen')}<div><strong>${analyse.loeschen.length} Löschung(en)</strong>
+        <span>Auf einem anderen Gerät gelöscht: ${analyse.loeschen.map(x => esc(beschreibe[x.art](x.obj))).join(', ')}</span></div></div>` : ''}
       ${konflikte ? `
         <fieldset class="optionen">
           <legend>Bereits vorhandene Einträge</legend>
-          <label class="check"><input type="radio" name="strategie" value="neuere" checked><span><strong>Nur neuere übernehmen</strong> – empfohlen</span></label>
-          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei übernehmen</strong> – überschreibt auch neuere Stände</span></label>
-          <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Vorhandene nicht anfassen</strong> – nur Neues hinzufügen</span></label>
+          <label class="check"><input type="radio" name="strategie" value="neuere" checked><span><strong>Abgleichen</strong> – neuere Stände und Löschungen übernehmen (empfohlen)</span></label>
+          <label class="check"><input type="radio" name="strategie" value="alle"><span><strong>Alles aus der Datei übernehmen</strong> – überschreibt auch neuere Stände, holt hier Gelöschtes zurück</span></label>
+          <label class="check"><input type="radio" name="strategie" value="nurNeue"><span><strong>Vorhandene nicht anfassen</strong> – nur Neues hinzufügen, nichts löschen</span></label>
         </fieldset>` : ''}
       ${analyse.einstellungen?.firma ? `<label class="check"><input type="checkbox" name="firma"><span>Briefkopf (Firma/Logo) aus der Datei übernehmen</span></label>` : ''}
       <details class="import-details"><summary>Einträge anzeigen</summary>
@@ -61,7 +63,8 @@ export async function importDialog(dateien) {
   if (wert !== 'ok') return null;
 
   const z = await importiere(analyse, daten.strategie, { einstellungen: daten.firma });
-  const text = Object.entries(ARTEN).map(([a, l]) => z[a] ? `${z[a]} ${l}` : '').filter(Boolean).join(', ');
+  const text = [...Object.entries(ARTEN).map(([a, l]) => z[a] ? `${z[a]} ${l}` : ''), z.geloescht ? `${z.geloescht} gelöscht` : '']
+    .filter(Boolean).join(', ');
   toast(text ? `Importiert: ${text}` : 'Nichts zu importieren – alles aktuell', text ? 'success' : 'info', 4500);
   return z;
 }

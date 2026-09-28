@@ -406,3 +406,16 @@ fieldset:disabled .sek-werkzeug,
 fieldset:disabled [data-w-aktion],
 fieldset:disabled [data-m-aktion],
 fieldset:disabled .us-leeren { display: none; }
+
+/* Fotos */
+.fotos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-2); flex-basis: 100%; }
+.foto { position: relative; margin: 0; width: 84px; height: 84px; border-radius: var(--r-2); overflow: hidden; border: 1px solid var(--line); background: var(--paper-sunken); }
+.foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
+.foto-weg {
+  position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: rgba(16, 21, 28, .7); color: #fff;
+}
+.foto-weg .ic { width: 14px; height: 14px; }
+.foto-neu { cursor: pointer; }
+fieldset:disabled .foto-weg, fieldset:disabled .foto-neu { display: none; }
+.foto-gross { display: block; max-width: 100%; max-height: 75dvh; margin: 0 auto; border-radius: var(--r-2); }

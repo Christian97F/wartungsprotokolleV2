@@ -54,7 +54,7 @@ export async function render(el, params) {
         <button class="btn btn-ghost" data-b="html">${icon('datei')}HTML-Datei</button>
         ${kannTeilen() ? `<button class="btn btn-ghost" data-b="teilen">${icon('teilen')}Teilen</button>` : ''}
       </div>
-      <p class="hinweis">Im Druckdialog „Als PDF speichern“ wählen. Empfohlen: A4, Ränder „Standard“, Kopf-/Fußzeilen des Browsers aus.</p>
+      <p class="hinweis">Im Druckdialog als Ziel „Als PDF speichern“ bzw. „In PDF drucken“ und Format A4 wählen.</p>
     </div>
     <div class="papier-rahmen">${berichtHtml(p, firma)}</div>`;
 

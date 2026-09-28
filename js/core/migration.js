@@ -3,8 +3,8 @@
 // importierte Alt-Dateien verwendet.
 import { DB } from './db.js';
 import { neueAnlage, planAktualisieren, neuesProtokoll } from './model.js';
-import { BUILTIN_VORLAGEN } from '../vorlagen/builtin.js';
-import { istLeer } from './util.js';
+import { BUILTIN_VORLAGEN, BETRIEBSSTOFFE } from '../vorlagen/builtin.js';
+import { istLeer, klon } from './util.js';
 
 const NEA = BUILTIN_VORLAGEN.find(v => v.id === 'nea');
 
@@ -238,10 +238,55 @@ export function ersatzAnlage(id) {
   return migriereAggregat({ id, stammdaten: { Kommission: '(gelöscht)' }, protokoll_config: {} });
 }
 
+// Schema 3: mitgelieferte Vorlagen in die Datenbank (bearbeitbar), Betriebsstoffe nur Stammdaten
+export const SEED_ZEIT = '2026-01-01T00:00:00.000Z';
+
+export function betriebsstoffeAnpassen(gruppen) {
+  const g = (gruppen || []).find(x => x.id === 'kuehlung');
+  if (!g || g.intern) return false;
+  g.intern = true;
+  if (g.titel === 'Kühlmittel') g.titel = 'Betriebsstoffe';
+  const ids = new Set(g.felder.map(f => f.id));
+  g.felder = [...BETRIEBSSTOFFE().filter(f => f.id.includes('Motoroel') && !ids.has(f.id)), ...g.felder];
+  return true;
+}
+
+export async function vorlagenEinspielen({ auchGeloeschte = false } = {}) {
+  const geloescht = await DB.einstellung('geloescht', {});
+  const neu = [];
+  for (const v of BUILTIN_VORLAGEN) {
+    if (await DB.vorlagen.hole(v.id)) continue;
+    const warGeloescht = !!geloescht[`vorlagen:${v.id}`];
+    if (warGeloescht && !auchGeloeschte) continue;
+    // Wiederhergestellt: neuer Zeitstempel, damit der Abgleich die Löschung nicht erneut anwendet
+    neu.push({ ...klon(v), erstellt_am: SEED_ZEIT, geaendert_am: warGeloescht ? new Date().toISOString() : SEED_ZEIT });
+    delete geloescht[`vorlagen:${v.id}`];
+  }
+  if (neu.length) await DB.vorlagen.speichereViele(neu);
+  await DB.setzeEinstellung('geloescht', geloescht);
+  return neu.length;
+}
+
+async function migriereV3() {
+  await vorlagenEinspielen();
+  const anlagen = (await DB.anlagen.alle()).filter(a => betriebsstoffeAnpassen(a.zusatzFelder));
+  if (anlagen.length) await DB.anlagen.speichereViele(anlagen);
+  const protokolle = (await DB.protokolle.alle()).filter(p => betriebsstoffeAnpassen(p.anlage?.zusatzFelder));
+  if (protokolle.length) await DB.protokolle.speichereViele(protokolle);
+}
+
 export async function migriereDatenbank() {
   const schema = await DB.einstellung('schema', 1);
-  if (schema >= 2) return null;
+  let ergebnis = null;
+  if (schema < 2) ergebnis = await migriereV2();
+  if (schema < 3) {
+    await migriereV3();
+    await DB.setzeEinstellung('schema', 3);
+  }
+  return ergebnis;
+}
 
+async function migriereV2() {
   const alteAggregate = await DB.legacyAggregate();
   const vorhandene = new Map((await DB.anlagen.alle()).map(a => [a.id, a]));
   const neu = alteAggregate.filter(a => !vorhandene.has(a.id)).map(migriereAggregat);

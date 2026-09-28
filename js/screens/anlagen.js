@@ -5,7 +5,7 @@ import { toast, bestaetigen, menue, leerZustand, dialog, eingabe } from '../core
 import { setzeKopf } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
 import { anlagenTitel, vorlageKopie } from '../core/model.js';
-import { alleVorlagen } from '../vorlagen/vorlagen.js';
+import { vorlagenZurAuswahl } from '../vorlagen/vorlagen.js';
 import { exportAnlage } from '../io/austausch.js';
 
 let suche = '';
@@ -20,7 +20,7 @@ export function faelligkeit(naechste) {
 }
 
 export async function vorlageAuswahl() {
-  const vorlagen = await alleVorlagen();
+  const vorlagen = await vorlagenZurAuswahl();
   const r = await dialog({
     titel: 'Neue Anlage',
     breit: true,
@@ -30,7 +30,7 @@ export async function vorlageAuswahl() {
           <span class="vw-kat">${esc(v.kategorie || 'Eigene Vorlage')}</span>
           <strong>${esc(v.name)}</strong>
           <span class="vw-text">${esc(v.beschreibung || '')}</span>
-          <span class="vw-meta">${v.sektionen.length} Abschnitte${v.builtin ? ' · mitgeliefert' : ''}</span>
+          <span class="vw-meta">${v.sektionen.length} Abschnitte${v.herkunft === 'mitgeliefert' ? ' · mitgeliefert' : ''}</span>
         </button>`).join('')}
       </div>`,
     auslesen: dlg => dlg.dataset.gewaehlt,

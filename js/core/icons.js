@@ -35,6 +35,8 @@ const PFADE = {
   datei:     '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',
   auge:      '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   blitz:     '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  kamera:    '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  bild:      '<rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="9" cy="9.5" r="1.8"/><path d="M21 16l-5-5-9 9"/>',
 };
 
 export function icon(name, klasse = '') {

@@ -62,11 +62,11 @@ const alsJson = (obj) => new Blob([JSON.stringify(obj, null, 2)], { type: 'appli
 // ── Export ───────────────────────────────────────────────────
 
 export async function exportBackup(opts) {
-  const [anlagen, protokolle, vorlagen, firma] = await Promise.all([
-    DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(), DB.einstellung('firma'),
+  const [anlagen, protokolle, vorlagen, firma, geloescht] = await Promise.all([
+    DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(), DB.einstellung('firma'), DB.einstellung('geloescht', {}),
   ]);
   const name = `Wartung_Backup_${heuteIso()}.json`;
-  const r = await ausgeben(alsJson(paket('backup', { anlagen, protokolle, vorlagen, einstellungen: { firma } })), name, opts);
+  const r = await ausgeben(alsJson(paket('backup', { anlagen, protokolle, vorlagen, geloescht, einstellungen: { firma } })), name, opts);
   if (r !== 'abgebrochen') await DB.setzeEinstellung('letztesBackup', jetztIso());
   return { name, anlagen: anlagen.length, protokolle: protokolle.length, vorlagen: vorlagen.length, r };
 }
@@ -99,9 +99,8 @@ export async function exportProtokolle(ids, opts) {
 }
 
 export async function exportVorlage(vorlage, opts) {
-  const { builtin, ...daten } = vorlage;
   const name = `${dateiname('Vorlage', vorlage.name)}.json`;
-  await ausgeben(alsJson(paket('vorlage', { vorlagen: [daten] })), name, opts);
+  await ausgeben(alsJson(paket('vorlage', { vorlagen: [vorlage] })), name, opts);
   return name;
 }
 
@@ -142,6 +141,7 @@ export async function normalisiere(daten, name = '') {
     return {
       anlagen: daten.anlagen || [], protokolle: daten.protokolle || [],
       vorlagen: daten.vorlagen || [], einstellungen: daten.einstellungen || null,
+      geloescht: daten.geloescht || {},
     };
   }
 
@@ -175,7 +175,9 @@ const zeitstempel = (o) => o.geaendert_am || o.erstellt_am || '';
 /** Vergleicht mit der Datenbank: neu / neuer / älter / gleich. */
 export async function analysiere(pakete) {
   const zusammen = { anlagen: new Map(), protokolle: new Map(), vorlagen: new Map(), einstellungen: null, alt: false };
+  const geloescht = {};
   for (const p of pakete) {
+    for (const [k, t] of Object.entries(p.geloescht || {})) if (!geloescht[k] || t > geloescht[k]) geloescht[k] = t;
     for (const art of ['anlagen', 'protokolle', 'vorlagen']) {
       for (const o of p[art]) {
         const vorher = zusammen[art].get(o.id);
@@ -185,18 +187,30 @@ export async function analysiere(pakete) {
     zusammen.einstellungen ||= p.einstellungen;
     zusammen.alt ||= !!p.alt;
   }
-  const ergebnis = { alt: zusammen.alt, einstellungen: zusammen.einstellungen };
+  const lokalGeloescht = await DB.einstellung('geloescht', {});
+  const ergebnis = { alt: zusammen.alt, einstellungen: zusammen.einstellungen, geloescht, loeschen: [] };
   for (const art of ['anlagen', 'protokolle', 'vorlagen']) {
     ergebnis[art] = [];
     for (const o of zusammen[art].values()) {
+      // In einer der Dateien nach dieser Änderung gelöscht → nicht wieder anlegen
+      if (geloescht[`${art}:${o.id}`] >= zeitstempel(o)) continue;
       const db = await DB[art].hole(o.id);
       let status = 'neu';
       if (db) {
         const a = zeitstempel(o), b = zeitstempel(db);
         status = a > b ? 'neuer' : a < b ? 'aelter' : 'gleich';
+      } else if (lokalGeloescht[`${art}:${o.id}`] >= zeitstempel(o)) {
+        status = 'geloescht';
       }
       ergebnis[art].push({ obj: o, status });
     }
+  }
+  // Auf einem anderen Gerät gelöscht, hier seitdem nicht mehr geändert → hier auch löschen
+  for (const [schluessel, zeit] of Object.entries(geloescht)) {
+    const [art, ...rest] = schluessel.split(':');
+    if (!DB[art]?.hole) continue;
+    const db = await DB[art].hole(rest.join(':'));
+    if (db && zeitstempel(db) <= zeit) ergebnis.loeschen.push({ art, obj: db });
   }
   return ergebnis;
 }
@@ -211,12 +225,21 @@ export const beschreibe = {
 export async function importiere(analyse, strategie = 'neuere', { einstellungen = false } = {}) {
   const nehmen = (status) =>
     status === 'neu' || (strategie === 'alle' && status !== 'gleich') || (strategie === 'neuere' && status === 'neuer');
+  // strategie 'alle' holt auch hier gelöschte Einträge zurück
   const zaehler = {};
   for (const art of ['vorlagen', 'anlagen', 'protokolle']) {
     const liste = analyse[art].filter(x => nehmen(x.status)).map(x => x.obj);
     if (liste.length) await DB[art].speichereViele(liste);
     zaehler[art] = liste.length;
   }
+  zaehler.geloescht = 0;
+  if (strategie !== 'nurNeue') {
+    for (const { art, obj } of analyse.loeschen) await DB[art].entferne(obj.id);
+    zaehler.geloescht = analyse.loeschen.length;
+  }
+  const lokal = await DB.einstellung('geloescht', {});
+  for (const [k, t] of Object.entries(analyse.geloescht || {})) if (!lokal[k] || t > lokal[k]) lokal[k] = t;
+  await DB.setzeEinstellung('geloescht', lokal);
   if (einstellungen && analyse.einstellungen?.firma) await DB.setzeEinstellung('firma', analyse.einstellungen.firma);
   return zaehler;
 }

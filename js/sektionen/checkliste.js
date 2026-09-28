@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import {
-  eingabe, statusSchalter, sektionKopfAktion, listenEditor,
+  eingabe, statusSchalter, sektionKopfAktion, listenEditor, fotoLeiste,
   wertText, statusZelle,
 } from './helfer.js';
 
@@ -78,7 +78,8 @@ export default {
             ${messungen}
             ${bewertung ? statusSchalter(`${p}.s`, w.s) : ''}
           </div>
-          ${bewertung ? `<div class="cl-notiz">${eingabe(`${p}.notiz`, w.notiz, { typ: 'text', platzhalter: 'Mangel beschreiben …' })}</div>` : ''}
+          ${bewertung ? `<div class="cl-notiz">${eingabe(`${p}.notiz`, w.notiz, { typ: 'text', platzhalter: 'Mangel beschreiben …' })}
+            ${fotoLeiste(`${p}.fotos`, w.fotos)}</div>` : ''}
         </div>`;
     }).join('');
     return kopf + `<div class="cl">${zeilen}</div>`;
@@ -117,6 +118,8 @@ export default {
         notiz: werte[el.id].notiz || '',
         behoben: !!werte[el.id].behoben,
         pfad: `werte.${sek.id}.${el.id}.behoben`,
+        fotos: werte[el.id].fotos || [],
+        fotoPfad: `werte.${sek.id}.${el.id}.fotos`,
       }));
   },
 
