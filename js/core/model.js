@@ -67,7 +67,9 @@ export function anlageSnapshot(anlage) {
   };
 }
 
-export function neuesProtokoll(anlage, { techniker = '' } = {}) {
+export const UNTERSCHRIFT_STANDARD = { techniker: true, kunde: true };
+
+export function neuesProtokoll(anlage, { techniker = '', unterschriftFelder = UNTERSCHRIFT_STANDARD } = {}) {
   const p = {
     id: erzeugeId('p_'),
     anlageId: anlage.id,
@@ -88,7 +90,10 @@ export function neuesProtokoll(anlage, { techniker = '' } = {}) {
     ergebnis: '',
     bemerkung: '',
     naechste_pruefung: plusMonate(heuteIso(), 12),
-    unterschriften: { techniker: null, kunde: null, kunde_name: '' },
+    unterschriften: {
+      techniker: null, kunde: null, kunde_name: '',
+      zeigeTechniker: unterschriftFelder.techniker, zeigeKunde: unterschriftFelder.kunde,
+    },
   };
   planAktualisieren(p, anlage);
   return p;

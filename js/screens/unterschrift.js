@@ -33,7 +33,8 @@ export function unterschriftFeld(container, wert, onChange, { gesperrt = () => f
       img.src = wert;
     }
   };
-  requestAnimationFrame(groesse);
+  // Größe erst bestimmen, wenn das Feld sichtbar ist (kann ausgeblendet starten)
+  new ResizeObserver(groesse).observe(canvas);
 
   const punkt = (e) => {
     const r = canvas.getBoundingClientRect();

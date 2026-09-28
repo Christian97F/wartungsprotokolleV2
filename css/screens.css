@@ -292,6 +292,8 @@ a.kz:hover { border-color: var(--line-strong); }
 .us-leeren { position: absolute; top: 4px; right: 4px; color: #7C8AA0; }
 .us-feld.us-leer .us-leeren { display: none; }
 .unterschriften .inp { margin-top: 6px; }
+.us-wahl { margin-top: var(--s-4); }
+.us-wahl .knopfreihe { margin: 0; gap: var(--s-2) var(--s-5); }
 
 .offen-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--s-3); font-size: 13.5px; }
 .offen-liste strong { font-family: var(--font-kond); text-transform: uppercase; letter-spacing: .03em; }

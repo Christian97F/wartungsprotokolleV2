@@ -45,6 +45,9 @@ export function berichtHtml(p, firma = {}) {
         <td>${m.behoben ? '✓ behoben' : '<strong>offen</strong>'}</td></tr>`).join('')}
       </tbody></table>` : '<p class="b-leer">Keine Mängel festgestellt.</p>';
 
+  const u = p.unterschriften || {};
+  const zeigeTechniker = u.zeigeTechniker !== false;
+  const zeigeKunde = u.zeigeKunde !== false;
   const unterschrift = (bild, name, rolle) => `
     <div class="b-us">
       <div class="b-us-bild">${bild ? `<img src="${bild}" alt="">` : ''}</div>
@@ -95,12 +98,12 @@ export function berichtHtml(p, firma = {}) {
       ${berichtSektion(++nr, 'Mängel', maengel)}
       ${p.bemerkung ? berichtSektion(++nr, 'Bemerkungen', `<p class="b-text">${esc(p.bemerkung).replace(/\n/g, '<br>')}</p>`) : ''}
 
-      <section class="b-sektion b-abschluss">
+      ${zeigeTechniker || zeigeKunde ? `<section class="b-sektion b-abschluss">
         <div class="b-unterschriften">
-          ${unterschrift(p.unterschriften?.techniker, p.meta.techniker, 'Techniker')}
-          ${unterschrift(p.unterschriften?.kunde, p.unterschriften?.kunde_name, 'Kunde / Betreiber')}
+          ${zeigeTechniker ? unterschrift(u.techniker, p.meta.techniker, 'Techniker') : ''}
+          ${zeigeKunde ? unterschrift(u.kunde, u.kunde_name, 'Kunde / Betreiber') : ''}
         </div>
-      </section>
+      </section>` : ''}
       ${p.status !== 'abgeschlossen' ? '<div class="b-wasserzeichen">ENTWURF</div>' : ''}
     </article>`;
 }

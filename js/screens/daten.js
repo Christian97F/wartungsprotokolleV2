@@ -4,6 +4,7 @@ import { icon } from '../core/icons.js';
 import { toast, dialog } from '../core/ui.js';
 import { setzeKopf } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
+import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
   exportBackup, exportUebersichtCsv, kannTeilen,
@@ -79,9 +80,10 @@ async function logoLaden(datei) {
 export async function render(el) {
   setzeKopf({ titel: 'Daten & Einstellungen', eyebrow: 'Import · Export · Briefkopf' });
 
-  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup] = await Promise.all([
+  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder] = await Promise.all([
     DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(),
     DB.einstellung('firma', {}), DB.einstellung('techniker', ''), DB.einstellung('letztesBackup'),
+    DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD),
   ]);
   const f = firma || {};
   const teilen = kannTeilen();
@@ -120,6 +122,14 @@ export async function render(el) {
           <label class="feld"><span class="feld-label">Standard-Techniker</span><input class="inp" type="text" id="techniker" value="${esc(techniker)}" placeholder="wird in neue Protokolle eingetragen"></label>
           <label class="feld"><span class="feld-label">Anschrift</span><textarea class="inp" rows="3" data-f="adresse">${esc(f.adresse)}</textarea></label>
           <label class="feld"><span class="feld-label">Kontakt</span><textarea class="inp" rows="3" data-f="kontakt" placeholder="Telefon, E-Mail, Web">${esc(f.kontakt)}</textarea></label>
+        </div>
+        <div class="feld us-wahl">
+          <span class="feld-label">Unterschriftsfelder in neuen Protokollen</span>
+          <div class="knopfreihe">
+            <label class="check"><input type="checkbox" data-us="techniker" ${usFelder.techniker ? 'checked' : ''}><span>Techniker</span></label>
+            <label class="check"><input type="checkbox" data-us="kunde" ${usFelder.kunde ? 'checked' : ''}><span>Kunde / Betreiber</span></label>
+          </div>
+          <span class="feld-hinweis">Lässt sich in jedem Protokoll unter „Abschluss“ einzeln ändern.</span>
         </div>
         <div class="logo-zeile">
           <div class="logo-vorschau" id="logo-vorschau">${f.logo ? `<img src="${f.logo}" alt="Logo">` : '<span>Kein Logo</span>'}</div>
@@ -164,6 +174,10 @@ export async function render(el) {
     f[inp.dataset.f] = inp.value.trim();
     speichereFirma();
     toast('Briefkopf gespeichert', 'success', 1500);
+  }));
+  el.querySelectorAll('[data-us]').forEach(cb => cb.addEventListener('change', () => {
+    usFelder[cb.dataset.us] = cb.checked;
+    DB.setzeEinstellung('unterschriftFelder', { ...usFelder });
   }));
   el.querySelector('#techniker').addEventListener('change', e => DB.setzeEinstellung('techniker', e.target.value.trim()));
   el.querySelector('#logo').addEventListener('change', async e => {

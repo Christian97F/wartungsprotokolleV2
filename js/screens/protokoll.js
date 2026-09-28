@@ -5,10 +5,10 @@ import { toast, bestaetigen, menue, dialog } from '../core/ui.js';
 import { setzeKopf, setzeKopfStatus } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
 import {
-  neuesProtokoll, planAktualisieren, auswertung, ergebnisVorschlag, anlagenTitel, ERGEBNISSE,
+  neuesProtokoll, planAktualisieren, auswertung, ergebnisVorschlag, anlagenTitel, ERGEBNISSE, UNTERSCHRIFT_STANDARD,
 } from '../core/model.js';
 import { modul } from '../sektionen/registry.js';
-import { zahlAusText, segment, eingabe } from '../sektionen/helfer.js';
+import { zahlAusText, segment, eingabe, checkbox } from '../sektionen/helfer.js';
 import { exportProtokolle } from '../io/austausch.js';
 import { unterschriftFeld } from './unterschrift.js';
 
@@ -96,6 +96,7 @@ function maengelHtml() {
 }
 
 function abschlussHtml() {
+  const u = p.unterschriften;
   return `
     <section class="karte sek" id="s--abschluss">
       <header class="sek-kopf"><span class="sek-nr">${nr(p.plan.length + 2)}</span><h2>Abschluss</h2></header>
@@ -110,10 +111,17 @@ function abschlussHtml() {
         <label class="feld"><span class="feld-label">Nächste Prüfung</span>
           <input class="inp" type="month" data-w="naechste_pruefung" data-wt="text" value="${esc(p.naechste_pruefung)}"></label>
       </div>
+      <div class="feld feld-voll us-wahl">
+        <span class="feld-label">Unterschriftsfelder im Bericht</span>
+        <div class="knopfreihe">
+          ${checkbox('unterschriften.zeigeTechniker', u.zeigeTechniker, 'Techniker')}
+          ${checkbox('unterschriften.zeigeKunde', u.zeigeKunde, 'Kunde / Betreiber')}
+        </div>
+      </div>
       <div class="unterschriften">
-        <div class="feld"><span class="feld-label">Unterschrift Techniker</span><div id="us-techniker"></div></div>
-        <div class="feld"><span class="feld-label">Unterschrift Kunde</span><div id="us-kunde"></div>
-          <input class="inp" type="text" data-w="unterschriften.kunde_name" data-wt="text" value="${esc(p.unterschriften?.kunde_name)}" placeholder="Name in Druckbuchstaben"></div>
+        <div class="feld" data-us="zeigeTechniker" ${u.zeigeTechniker ? '' : 'hidden'}><span class="feld-label">Unterschrift Techniker</span><div id="us-techniker"></div></div>
+        <div class="feld" data-us="zeigeKunde" ${u.zeigeKunde ? '' : 'hidden'}><span class="feld-label">Unterschrift Kunde</span><div id="us-kunde"></div>
+          <input class="inp" type="text" data-w="unterschriften.kunde_name" data-wt="text" value="${esc(u.kunde_name)}" placeholder="Name in Druckbuchstaben"></div>
       </div>
     </section>`;
 }
@@ -215,6 +223,8 @@ function binde() {
     setzePfad(p, inp.dataset.w, wert);
     geaendert();
     if (inp.hasAttribute('data-mg')) aktualisiereFortschritt();
+    const us = inp.dataset.w.match(/^unterschriften\.(zeige\w+)$/);
+    if (us) el.querySelector(`[data-us="${us[1]}"]`).hidden = !wert;
     if (/\.notiz$/.test(inp.dataset.w)) maengelNeuZeichnenSpaeter();
   };
   const maengelNeuZeichnenSpaeter = debounce(maengelNeuZeichnen, 600);
@@ -378,7 +388,10 @@ export async function render(container, params, query) {
   if (params.id === 'neu') {
     const anlage = await DB.anlagen.hole(query.anlage);
     if (!anlage) throw new Error('Anlage nicht gefunden');
-    p = neuesProtokoll(anlage, { techniker: await DB.einstellung('techniker', '') });
+    p = neuesProtokoll(anlage, {
+      techniker: await DB.einstellung('techniker', ''),
+      unterschriftFelder: await DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD),
+    });
     await DB.protokolle.speichere(p);
     navigiere(`/protokoll/${p.id}`, { ersetzen: true });
     return;
@@ -387,6 +400,8 @@ export async function render(container, params, query) {
   p = await DB.protokolle.hole(params.id);
   if (!p) throw new Error('Protokoll nicht gefunden');
   p.unterschriften ??= { techniker: null, kunde: null, kunde_name: '' };
+  p.unterschriften.zeigeTechniker ??= true;
+  p.unterschriften.zeigeKunde ??= true;
   p.maengel ??= [];
   if (!gesperrt()) {
     const anlage = await DB.anlagen.hole(p.anlageId);

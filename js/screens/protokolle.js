@@ -135,7 +135,7 @@ export async function render(el, _params, query) {
         const kopie = {
           ...klon(p), id: erzeugeId('p_'), status: 'entwurf', datum: heuteIso(),
           erstellt_am: jetztIso(), geaendert_am: jetztIso(), ergebnis: '',
-          unterschriften: { techniker: null, kunde: null, kunde_name: '' },
+          unterschriften: { ...p.unterschriften, techniker: null, kunde: null, kunde_name: '' },
         };
         delete kopie.abgeschlossen_am;
         planAktualisieren(kopie, anlage);
