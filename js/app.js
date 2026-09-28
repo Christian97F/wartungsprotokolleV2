@@ -67,6 +67,7 @@ async function start() {
   }
 
   starteRouter(document.getElementById('inhalt'));
+  import('./screens/erinnerung.js').then(m => m.taeglicheErinnerung()).catch(e => console.warn('Erinnerung:', e));
 
   if ('serviceWorker' in navigator) {
     const hatteVersion = !!navigator.serviceWorker.controller;

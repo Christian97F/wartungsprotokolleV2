@@ -62,7 +62,7 @@ const alsJson = (obj) => new Blob([JSON.stringify(obj, null, 2)], { type: 'appli
 // ── Export ───────────────────────────────────────────────────
 
 // Einstellungen, die mit ins Backup gehen (Briefkopf inkl. Logo, Standard-Techniker, Unterschriftsfelder)
-const EINSTELLUNGEN = ['firma', 'techniker', 'unterschriftFelder'];
+const EINSTELLUNGEN = ['firma', 'techniker', 'unterschriftFelder', 'syncErinnerung'];
 
 async function sicherbareEinstellungen() {
   const werte = await Promise.all(EINSTELLUNGEN.map(k => DB.einstellung(k)));
@@ -263,5 +263,6 @@ export async function importiere(analyse, auswahl, { einstellungen = false } = {
       if (analyse.einstellungen[k] != null) await DB.setzeEinstellung(k, analyse.einstellungen[k]);
     }
   }
+  await DB.setzeEinstellung('letzterImport', jetztIso());
   return zaehler;
 }

@@ -7,6 +7,7 @@ import { navigiere } from '../core/router.js';
 import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import { bildVerkleinern } from '../core/bild.js';
 import { thema, setzeThema } from '../core/thema.js';
+import { ERINNERUNG_STANDARD } from './erinnerung.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
   schluessel, loeschSchluessel, vorausgewaehlt, loeschungVorausgewaehlt, zeitstempelVon,
@@ -38,6 +39,7 @@ export async function importDialog(dateien) {
     e.firma && (e.firma.logo ? 'Briefkopf mit Logo' : 'Briefkopf'),
     e.techniker && 'Standard-Techniker',
     e.unterschriftFelder && 'Unterschriftsfelder',
+    e.syncErinnerung?.hinweis && 'Hinweis zur Aktualisierung',
   ].filter(Boolean).join(', ');
   const neuesGeraet = !(await DB.einstellung('firma'))?.name;
   const konflikte = analyse.loeschen.length || Object.keys(ARTEN).some(a => zaehle(a, 'neuer') + zaehle(a, 'aelter') + zaehle(a, 'geloescht') > 0);
@@ -133,10 +135,11 @@ export async function importDialog(dateien) {
 export async function render(el) {
   setzeKopf({ titel: 'Daten & Einstellungen', eyebrow: 'Import · Export · Briefkopf' });
 
-  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder] = await Promise.all([
+  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder, erinnerung] = await Promise.all([
     DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(),
     DB.einstellung('firma', {}), DB.einstellung('techniker', ''), DB.einstellung('letztesBackup'),
     DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD),
+    DB.einstellung('syncErinnerung', ERINNERUNG_STANDARD),
   ]);
   const f = firma || {};
   const teilen = kannTeilen();
@@ -152,6 +155,13 @@ export async function render(el) {
           <strong>Dateien auswählen oder hierher ziehen</strong>
           <span>Backups, Anlagen, Protokolle, Vorlagen – auch Dateien der alten App-Version</span>
         </label>
+        <div class="erinnerung-einstellung">
+          <label class="check"><input type="checkbox" id="erinnerung-aktiv" ${erinnerung.aktiv ? 'checked' : ''}>
+            <span>Einmal täglich beim Start an das Aktualisieren erinnern</span></label>
+          <label class="feld"><span class="feld-label">Hinweis in der Erinnerung</span>
+            <textarea class="inp" rows="3" id="erinnerung-hinweis" placeholder="z. B. Dateien › iCloud Drive › Wartung › neueste Wartung_Backup-Datei wählen">${esc(erinnerung.hinweis)}</textarea>
+            <span class="feld-hinweis">Wird mit der Sicherung auf andere Geräte übertragen.</span></label>
+        </div>
       </section>
 
       <section class="karte">
@@ -253,6 +263,16 @@ export async function render(el) {
     }
   });
   el.querySelector('#logo-weg')?.addEventListener('click', async () => { delete f.logo; await speichereFirma(); neuLaden(); });
+
+  const speichereErinnerung = () => DB.setzeEinstellung('syncErinnerung', {
+    aktiv: el.querySelector('#erinnerung-aktiv').checked,
+    hinweis: el.querySelector('#erinnerung-hinweis').value.trim(),
+  });
+  el.querySelector('#erinnerung-aktiv').addEventListener('change', speichereErinnerung);
+  el.querySelector('#erinnerung-hinweis').addEventListener('change', async () => {
+    await speichereErinnerung();
+    toast('Hinweis gespeichert', 'success', 1500);
+  });
 
   el.querySelector('#thema-wahl').addEventListener('click', e => {
     const b = e.target.closest('[data-thema]');
