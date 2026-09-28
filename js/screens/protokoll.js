@@ -382,9 +382,24 @@ async function abschliessen() {
 }
 
 async function entsperren() {
-  if (!await bestaetigen('Das Protokoll wird wieder zum Entwurf und kann bearbeitet werden.', { titel: 'Protokoll bearbeiten', ja: 'Bearbeiten', art: 'primary' })) return;
+  const u = p.unterschriften || {};
+  const unterschrieben = !!(u.techniker || u.kunde);
+  const text = unterschrieben
+    ? 'Das Protokoll wird wieder zum Entwurf und kann bearbeitet werden.\n\n'
+      + 'Die vorhandenen Unterschriften werden dabei entfernt, da sie sich auf den bisherigen Stand beziehen. '
+      + 'Nach der Bearbeitung muss erneut unterschrieben werden.'
+    : 'Das Protokoll wird wieder zum Entwurf und kann bearbeitet werden.';
+  if (!await bestaetigen(text, {
+    titel: 'Protokoll bearbeiten',
+    ja: unterschrieben ? 'Unterschriften entfernen & bearbeiten' : 'Bearbeiten',
+    art: unterschrieben ? 'danger' : 'primary',
+  })) return;
   p.status = 'entwurf';
   delete p.abgeschlossen_am;
+  // Unterschriften gelten nur für den unterschriebenen Stand
+  u.techniker = null;
+  u.kunde = null;
+  p.unterschriften = u;
   ausstehend = true;
   await jetztSpeichern();
   kopf();
