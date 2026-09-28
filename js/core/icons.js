@@ -1,0 +1,42 @@
+// Strich-Icons (24er Raster, currentColor)
+const PFADE = {
+  anlage:    '<rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M7 10h4M7 14h2M15 9v6M18 9v6"/>',
+  protokoll: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 12h6M10 16h6"/>',
+  vorlage:   '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+  daten:     '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+  plus:      '<path d="M12 5v14M5 12h14"/>',
+  zurueck:   '<path d="M15 5l-7 7 7 7"/>',
+  weiter:    '<path d="M9 5l7 7-7 7"/>',
+  import:    '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>',
+  export:    '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 17v3h16v-3"/>',
+  teilen:    '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
+  bearbeiten:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  loeschen:  '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  kopie:     '<rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  pdf:       '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M9.5 17v-4h1.3a1.2 1.2 0 0 1 0 2.4H9.5M13.5 17v-4h1a2 2 0 0 1 0 4z"/>',
+  drucken:   '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M7 14h10v7H7z"/>',
+  suche:     '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  hoch:      '<path d="M6 15l6-6 6 6"/>',
+  runter:    '<path d="M6 9l6 6 6-6"/>',
+  schliessen:'<path d="M6 6l12 12M18 6L6 18"/>',
+  check:     '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  warnung:   '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/>',
+  info:      '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
+  mond:      '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  sonne:     '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  einstellungen: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  schloss:   '<rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  offen:     '<rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+  stift:     '<path d="M3 21c3-1 5-4 8-4s3 3 6 3 4-2 4-2"/><path d="M14 4l3 3-8 8H6v-3z"/>',
+  liste:     '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+  mehr:      '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  kalender:  '<rect x="3" y="5" width="18" height="16" rx="1.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  person:    '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+  datei:     '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',
+  auge:      '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  blitz:     '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+};
+
+export function icon(name, klasse = '') {
+  return `<svg class="ic ${klasse}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PFADE[name] || ''}</svg>`;
+}

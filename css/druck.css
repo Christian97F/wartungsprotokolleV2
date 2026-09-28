@@ -1,0 +1,10 @@
+/* Beim Drucken nur den Bericht ausgeben */
+html, body { background: #fff !important; }
+.seitenleiste, .kopf, .unten-nav, .bericht-werkzeug, #toast-host, .drop-hinweis, .popmenue { display: none !important; }
+.hauptbereich { margin: 0 !important; padding: 0 !important; }
+.inhalt { padding: 0 !important; max-width: none !important; }
+.papier-rahmen { overflow: visible !important; padding: 0 !important; }
+
+/* Außerhalb der Berichtsansicht: Formular lesbar drucken */
+html:not(.druckt-bericht) .prot-nav, html:not(.druckt-bericht) .fuss-aktionen { display: none !important; }
+.papier-rahmen .bericht { zoom: 1 !important; }

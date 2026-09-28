@@ -1,13 +1,11 @@
-// ============================================================
-// Service Worker – sorgt dafür, dass die App komplett offline
-// funktioniert, nachdem sie einmal geladen wurde.
-// Alle App-Dateien werden beim ersten Aufruf im Browser-Cache
-// gespeichert. Danach läuft alles ohne Internet.
-// ============================================================
+// Service Worker: App-Dateien offline verfügbar machen.
+// Strategie: Cache zuerst, im Hintergrund aktualisieren (stale-while-revalidate).
+// Bei jeder Änderung an den App-Dateien VERSION erhöhen.
 
-const CACHE_NAME = 'notstrom-wartung-v15';
+const VERSION = 'v2.0.0';
+const CACHE = `wartung-${VERSION}`;
+const FONT_CACHE = 'wartung-fonts';
 
-// Liste aller Dateien, die gecacht werden sollen
 const ASSETS = [
   './',
   './index.html',
@@ -15,60 +13,98 @@ const ASSETS = [
   './icon.svg',
   './icon-192-v2.png',
   './icon-512-v2.png',
-  './404.html',
-  './variables.css',
-  './base.css',
-  './layout.css',
-  './components.css',
-  './db.js',
-  './io.js',
-  './konfigurator.js',
-  './protokoll.js',
-  './eintraege.js',
-  './app.js'
+  './css/basis.css',
+  './css/bericht.css',
+  './css/druck.css',
+  './css/komponenten.css',
+  './css/layout.css',
+  './css/screens.css',
+  './css/tokens.css',
+  './js/app.js',
+  './js/core/db.js',
+  './js/core/icons.js',
+  './js/core/migration.js',
+  './js/core/model.js',
+  './js/core/router.js',
+  './js/core/shell.js',
+  './js/core/ui.js',
+  './js/core/util.js',
+  './js/io/austausch.js',
+  './js/io/bericht.js',
+  './js/screens/anlage.js',
+  './js/screens/anlagen.js',
+  './js/screens/bericht.js',
+  './js/screens/daten.js',
+  './js/screens/protokoll.js',
+  './js/screens/protokolle.js',
+  './js/screens/pruefplan-editor.js',
+  './js/screens/stammdaten-editor.js',
+  './js/screens/unterschrift.js',
+  './js/screens/vorlagen.js',
+  './js/sektionen/_helfer.js',
+  './js/sektionen/aufgaben.js',
+  './js/sektionen/batterien.js',
+  './js/sektionen/checkliste.js',
+  './js/sektionen/felder.js',
+  './js/sektionen/messreihe.js',
+  './js/sektionen/registry.js',
+  './js/sektionen/tabelle.js',
+  './js/vorlagen/builtin.js',
+  './js/vorlagen/vorlagen.js',
 ];
 
-// Installation: Alle Dateien einzeln cachen (fehlertolerant)
-// cache.addAll() bricht bei einem einzigen Fehler ab – auf GitHub Pages
-// können einzelne Dateien mal nicht erreichbar sein (race conditions).
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      Promise.allSettled(
-        ASSETS.map(url =>
-          cache.add(url).catch(() => {
-            console.warn('SW: Konnte nicht cachen:', url);
-          })
-        )
-      )
-    )
+    caches.open(CACHE).then(cache =>
+      Promise.allSettled(ASSETS.map(url => cache.add(new Request(url, { cache: 'reload' })))))
   );
   self.skipWaiting();
 });
 
-// Aktivierung: Alten Cache löschen (bei App-Updates)
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => caches.delete(k))
-      )
-    )
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== FONT_CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Netzwerkanfragen abfangen: erst Cache prüfen, dann Netzwerk
-// Netzwerkfehler (z.B. Server offline) werden abgefangen → Fallback auf index.html
 self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // Google Fonts: einmal laden, danach aus dem Cache
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(
+      caches.open(FONT_CACHE).then(async cache => {
+        const treffer = await cache.match(req);
+        if (treffer) return treffer;
+        const antwort = await fetch(req);
+        if (antwort.ok || antwort.type === 'opaque') cache.put(req, antwort.clone());
+        return antwort;
+      }).catch(() => new Response('', { status: 504 }))
+    );
+    return;
+  }
+
+  if (url.origin !== location.origin) return;
+
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).catch(() =>
-        caches.match('./index.html')
-      );
+    caches.open(CACHE).then(async cache => {
+      const treffer = await cache.match(req, { ignoreSearch: true });
+      const netz = fetch(req).then(antwort => {
+        if (antwort.ok) cache.put(req, antwort.clone());
+        return antwort;
+      }).catch(() => null);
+      if (treffer) {
+        event.waitUntil(netz);
+        return treffer;
+      }
+      const antwort = await netz;
+      if (antwort) return antwort;
+      if (req.mode === 'navigate') return cache.match('./index.html');
+      return new Response('Offline', { status: 503 });
     })
   );
 });
