@@ -5,6 +5,8 @@ import { toast, dialog } from '../core/ui.js';
 import { setzeKopf } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
 import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
+import { bildVerkleinern } from '../core/bild.js';
+import { thema, setzeThema } from '../core/thema.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
   exportBackup, exportUebersichtCsv, kannTeilen,
@@ -69,17 +71,6 @@ export async function importDialog(dateien) {
   return z;
 }
 
-async function logoLaden(datei) {
-  const bild = await createImageBitmap(datei);
-  const max = 600;
-  const f = Math.min(1, max / Math.max(bild.width, bild.height));
-  const c = document.createElement('canvas');
-  c.width = Math.round(bild.width * f);
-  c.height = Math.round(bild.height * f);
-  c.getContext('2d').drawImage(bild, 0, 0, c.width, c.height);
-  return c.toDataURL(datei.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.9);
-}
-
 export async function render(el) {
   setzeKopf({ titel: 'Daten & Einstellungen', eyebrow: 'Import · Export · Briefkopf' });
 
@@ -97,7 +88,7 @@ export async function render(el) {
       <section class="karte">
         <h2 class="karte-titel">${icon('import')} Import</h2>
         <label class="ablage" id="ablage">
-          <input type="file" id="datei" accept=".json,application/json" multiple hidden>
+          <input type="file" id="datei" accept=".json,application/json" multiple class="datei-input">
           ${icon('import')}
           <strong>Dateien auswählen oder hierher ziehen</strong>
           <span>Backups, Anlagen, Protokolle, Vorlagen – auch Dateien der alten App-Version</span>
@@ -127,22 +118,29 @@ export async function render(el) {
           <label class="feld"><span class="feld-label">Kontakt</span><textarea class="inp" rows="3" data-f="kontakt" placeholder="Telefon, E-Mail, Web">${esc(f.kontakt)}</textarea></label>
         </div>
         <div class="feld us-wahl">
-          <span class="feld-label">Unterschriftsfelder in neuen Protokollen</span>
+          <span class="feld-label">Unterschriftsfelder im Bericht</span>
           <div class="knopfreihe">
             <label class="check"><input type="checkbox" data-us="techniker" ${usFelder.techniker ? 'checked' : ''}><span>Techniker</span></label>
             <label class="check"><input type="checkbox" data-us="kunde" ${usFelder.kunde ? 'checked' : ''}><span>Kunde / Betreiber</span></label>
           </div>
-          <span class="feld-hinweis">Lässt sich in jedem Protokoll unter „Abschluss“ einzeln ändern.</span>
+          <span class="feld-hinweis">Gilt für alle Protokolle – außer denen, bei denen unter „Abschluss“ etwas anderes eingestellt wurde.</span>
         </div>
         <div class="logo-zeile">
           <div class="logo-vorschau" id="logo-vorschau">${f.logo ? `<img src="${f.logo}" alt="Logo">` : '<span>Kein Logo</span>'}</div>
-          <label class="btn btn-ghost">${icon('datei')}Logo wählen<input type="file" accept="image/*" id="logo" hidden></label>
+          <label class="btn btn-ghost">${icon('datei')}Logo wählen<input type="file" accept="image/*" id="logo" class="datei-input"></label>
           ${f.logo ? `<button class="btn btn-ghost" id="logo-weg">${icon('loeschen')}Entfernen</button>` : ''}
         </div>
       </section>
 
       <section class="karte">
-        <h2 class="karte-titel">${icon('info')} Speicher & App</h2>
+        <h2 class="karte-titel">${icon('info')} App & Speicher</h2>
+        <div class="feld">
+          <span class="feld-label">Darstellung</span>
+          <div class="segment" role="group" id="thema-wahl">
+            ${[['auto', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([w, l]) =>
+              `<button type="button" class="seg" data-thema="${w}" aria-pressed="${thema() === w}">${l}</button>`).join('')}
+          </div>
+        </div>
         <p class="hinweis" id="speicher">Speicherbelegung wird ermittelt …</p>
         <div class="knopfreihe"><button class="btn btn-ghost" id="persist">${icon('schloss')}Dauerhafte Speicherung anfordern</button></div>
         <p class="hinweis">Alle Daten liegen lokal in diesem Browser (IndexedDB) und funktionieren offline. Beim Löschen der Browserdaten gehen sie verloren – regelmäßig sichern!</p>
@@ -186,12 +184,23 @@ export async function render(el) {
   el.querySelector('#logo').addEventListener('change', async e => {
     const d = e.target.files[0];
     if (!d) return;
-    f.logo = await logoLaden(d);
-    await speichereFirma();
-    neuLaden();
+    try {
+      f.logo = await bildVerkleinern(d, { max: 600, format: 'image/png' });
+      await speichereFirma();
+      toast('Logo gespeichert', 'success');
+      neuLaden();
+    } catch (err) {
+      toast(`Logo konnte nicht geladen werden: ${err.message}`, 'error', 6000);
+    }
   });
   el.querySelector('#logo-weg')?.addEventListener('click', async () => { delete f.logo; await speichereFirma(); neuLaden(); });
 
+  el.querySelector('#thema-wahl').addEventListener('click', e => {
+    const b = e.target.closest('[data-thema]');
+    if (!b) return;
+    setzeThema(b.dataset.thema);
+    el.querySelectorAll('[data-thema]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
   el.querySelector('#persist').addEventListener('click', async () => {
     const ok = await navigator.storage?.persist?.();
     toast(ok ? 'Daten werden dauerhaft gespeichert' : 'Der Browser hat die dauerhafte Speicherung nicht gewährt', ok ? 'success' : 'warning');

@@ -544,3 +544,7 @@ fieldset:disabled .segment { opacity: .8; }
   .le-felder { order: 2; flex-basis: 100%; }
   .le-knoepfe { margin-left: auto; }
 }
+
+/* Datei-Auswahl: unsichtbar, aber nicht display:none (sonst öffnet iOS den Dialog nicht zuverlässig) */
+.datei-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+label:has(> .datei-input) { position: relative; }

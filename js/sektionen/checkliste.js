@@ -3,6 +3,7 @@ import {
   eingabe, statusSchalter, sektionKopfAktion, listenEditor, fotoLeiste,
   wertText, statusZelle,
 } from './helfer.js';
+import { FARBE, pdfWert, pdfStatus, tabelle } from './pdfhelfer.js';
 
 const pruefpunkte = (sek) => sek.elemente.filter(e => e.art !== 'ueberschrift');
 
@@ -142,5 +143,28 @@ export default {
     return `<table class="b-tabelle">
       <colgroup><col>${hatMessung ? '<col style="width:30%">' : ''}<col style="width:22mm"></colgroup>
       <tbody>${zeilen}</tbody></table>`;
+  },
+
+  pdf(sek, werte) {
+    const hatMessung = pruefpunkte(sek).some(e => e.messungen?.length);
+    const spalten = hatMessung ? 3 : 2;
+    const zeilen = sek.elemente.map(el => {
+      if (el.art === 'ueberschrift') {
+        return [{ text: el.label.toUpperCase(), style: 'zw', colSpan: spalten }, ...Array(spalten - 1).fill({})];
+      }
+      const w = werte[el.id] || { m: {} };
+      const mangel = w.s === 'mangel';
+      const text = [{ text: [el.label, el.tag ? { text: `  ${el.tag}`, style: 'tag' } : ''] }];
+      if (mangel && w.notiz) text.push({ text: w.notiz, style: 'notiz' });
+      const zeile = [{ stack: text }];
+      if (hatMessung) {
+        zeile.push({ stack: (el.messungen || []).map(m => ({
+          text: [m.label ? { text: `${m.label} `, style: 'klein' } : '', pdfWert(w.m?.[m.id], m.einheit)],
+        })) });
+      }
+      zeile.push(el.bewertung !== false ? pdfStatus(w.s) : '');
+      return mangel ? zeile.map(z => ({ ...z, fillColor: FARBE.mangel })) : zeile;
+    });
+    return tabelle(hatMessung ? ['*', 130, 48] : ['*', 48], null, zeilen);
   },
 };

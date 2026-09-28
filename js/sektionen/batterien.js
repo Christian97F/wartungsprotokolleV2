@@ -1,5 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, statusSchalter, checkbox, listenEditor, wertText, statusZelle } from './helfer.js';
+import { pdfWert, pdfStatus, th, untertitel, feldRaster, tabelle } from './pdfhelfer.js';
 
 const MESSUNGEN = [
   { id: 'leerlauf', label: 'Leerlaufspannung', einheit: 'V' },
@@ -131,4 +132,27 @@ export default {
     }).join('')}
     ${sek.lader.length ? `<dl class="b-felder">${sek.lader.map(l =>
       `<div><dt>${esc(l.name || 'Ladegerät')} – Ladespannung</dt><dd>${wertText(werte.lader[l.id], 'V')}</dd></div>`).join('')}</dl>` : ''}`,
+
+  pdf(sek, werte) {
+    const teile = [];
+    for (const g of sek.gruppen) {
+      const mess = messungenFuer(g);
+      teile.push(untertitel(g.name, gruppeBeschreibung(g)));
+      teile.push(tabelle(
+        [22, ...mess.map(() => '*'), 48, ...(g.wartungsfrei ? [] : [55])],
+        [th('Nr.'), ...mess.map(m => th(m.label, 'right')), th('Klemmen'), ...(g.wartungsfrei ? [] : [th('Dest. Wasser')])],
+        werte.gruppen[g.id].map((b, i) => [
+          { text: String(i + 1) },
+          ...mess.map(m => ({ ...pdfWert(b[m.id], m.einheit), alignment: 'right' })),
+          pdfStatus(b.klemmen),
+          ...(g.wartungsfrei ? [] : [{ text: b.destilliert ? 'ja' : '–' }]),
+        ]),
+        { raster: true },
+      ));
+    }
+    if (sek.lader.length) {
+      teile.push({ ...feldRaster(sek.lader.map(l => [`${l.name || 'Ladegerät'} – Ladespannung`, pdfWert(werte.lader[l.id], 'V')])), margin: [0, 6, 0, 0] });
+    }
+    return { stack: teile };
+  },
 };

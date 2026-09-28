@@ -69,7 +69,15 @@ export function anlageSnapshot(anlage) {
 
 export const UNTERSCHRIFT_STANDARD = { techniker: true, kunde: true };
 
-export function neuesProtokoll(anlage, { techniker = '', unterschriftFelder = UNTERSCHRIFT_STANDARD } = {}) {
+// Ohne Angabe im Protokoll gilt die Einstellung unter „Daten“ (auch nachträglich)
+export function unterschriftFelder(p, standard = UNTERSCHRIFT_STANDARD) {
+  return {
+    techniker: p.unterschriften?.zeigeTechniker ?? standard.techniker,
+    kunde: p.unterschriften?.zeigeKunde ?? standard.kunde,
+  };
+}
+
+export function neuesProtokoll(anlage, { techniker = '' } = {}) {
   const p = {
     id: erzeugeId('p_'),
     anlageId: anlage.id,
@@ -90,10 +98,7 @@ export function neuesProtokoll(anlage, { techniker = '', unterschriftFelder = UN
     ergebnis: '',
     bemerkung: '',
     naechste_pruefung: plusMonate(heuteIso(), 12),
-    unterschriften: {
-      techniker: null, kunde: null, kunde_name: '',
-      zeigeTechniker: unterschriftFelder.techniker, zeigeKunde: unterschriftFelder.kunde,
-    },
+    unterschriften: { techniker: null, kunde: null, kunde_name: '' },
   };
   planAktualisieren(p, anlage);
   return p;

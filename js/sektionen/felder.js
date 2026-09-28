@@ -1,5 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, listenEditor, wertText } from './helfer.js';
+import { pdfWert, feldRaster } from './pdfhelfer.js';
 
 export const FELDTYPEN = [
   ['zahl', 'Zahl / Messwert'],
@@ -61,5 +62,12 @@ export default {
       <div class="${f.typ === 'textlang' ? 'b-voll' : ''}"><dt>${esc(f.label)}</dt>
       <dd>${f.typ === 'janein' && werte[f.id] ? (werte[f.id] === 'ja' ? 'Ja' : 'Nein') : wertText(werte[f.id], f.einheit)}</dd></div>`).join('')}
     </dl>`;
+  },
+
+  pdf(sek, werte) {
+    const wert = (f) => f.typ === 'janein' && werte[f.id] ? { text: werte[f.id] === 'ja' ? 'Ja' : 'Nein' } : pdfWert(werte[f.id], f.einheit);
+    const kurz = sek.elemente.filter(f => f.typ !== 'textlang');
+    const lang = sek.elemente.filter(f => f.typ === 'textlang');
+    return { stack: [feldRaster(kurz.map(f => [f.label, wert(f)])), feldRaster(lang.map(f => [f.label, wert(f)]), 1)] };
   },
 };

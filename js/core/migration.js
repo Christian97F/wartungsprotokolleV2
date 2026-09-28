@@ -283,6 +283,14 @@ export async function migriereDatenbank() {
     await migriereV3();
     await DB.setzeEinstellung('schema', 3);
   }
+  if (schema < 4) {
+    // Bisher fest gespeicherte Standardwerte entfernen → Protokolle folgen der Einstellung
+    const protokolle = (await DB.protokolle.alle()).filter(p =>
+      p.unterschriften?.zeigeTechniker === true && p.unterschriften?.zeigeKunde === true);
+    for (const p of protokolle) { delete p.unterschriften.zeigeTechniker; delete p.unterschriften.zeigeKunde; }
+    if (protokolle.length) await DB.protokolle.speichereViele(protokolle);
+    await DB.setzeEinstellung('schema', 4);
+  }
   return ergebnis;
 }
 

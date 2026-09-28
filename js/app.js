@@ -2,6 +2,7 @@ import { route, starteRouter } from './core/router.js';
 import { icon } from './core/icons.js';
 import { toast } from './core/ui.js';
 import { migriereDatenbank } from './core/migration.js';
+import { themaEinrichten } from './core/thema.js';
 
 const NAV = [
   { pfad: '/anlagen', label: 'Anlagen', icon: 'anlage', muster: ['/anlagen', '/anlage/:id'] },
@@ -30,27 +31,6 @@ function navAufbauen() {
     const aktiv = NAV.find(n => n.muster.includes(e.detail.muster));
     document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('aktiv', a.dataset.nav === aktiv?.pfad));
     document.body.dataset.bereich = e.detail.muster.split('/')[1];
-  });
-}
-
-function themaEinrichten() {
-  const knopf = document.getElementById('thema');
-  const setze = (t) => {
-    if (t) document.documentElement.dataset.theme = t;
-    else delete document.documentElement.dataset.theme;
-    const dunkel = t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches);
-    knopf.innerHTML = icon(dunkel ? 'sonne' : 'mond') + `<span>${dunkel ? 'Hell' : 'Dunkel'}</span>`;
-    document.querySelector('meta[name="theme-color"]').content = dunkel ? '#10151C' : '#F2F5F7';
-  };
-  let gespeichert = null;
-  try { gespeichert = localStorage.getItem('thema'); } catch { /* privat */ }
-  setze(gespeichert);
-  knopf.addEventListener('click', () => {
-    const dunkel = document.documentElement.dataset.theme === 'dark'
-      || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
-    const neu = dunkel ? 'light' : 'dark';
-    try { localStorage.setItem('thema', neu); } catch { /* privat */ }
-    setze(neu);
   });
 }
 

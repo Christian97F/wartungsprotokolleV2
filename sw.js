@@ -2,7 +2,7 @@
 // Strategie: Cache zuerst, im Hintergrund aktualisieren (stale-while-revalidate).
 // Bei jeder Änderung an den App-Dateien VERSION erhöhen.
 
-const VERSION = 'v2.1.0';
+const VERSION = 'v2.2.0';
 const CACHE = `wartung-${VERSION}`;
 const FONT_CACHE = 'wartung-fonts';
 
@@ -28,10 +28,12 @@ const ASSETS = [
   './js/core/model.js',
   './js/core/router.js',
   './js/core/shell.js',
+  './js/core/thema.js',
   './js/core/ui.js',
   './js/core/util.js',
   './js/io/austausch.js',
   './js/io/bericht.js',
+  './js/io/pdf.js',
   './js/screens/anlage.js',
   './js/screens/anlagen.js',
   './js/screens/bericht.js',
@@ -48,10 +50,13 @@ const ASSETS = [
   './js/sektionen/felder.js',
   './js/sektionen/helfer.js',
   './js/sektionen/messreihe.js',
+  './js/sektionen/pdfhelfer.js',
   './js/sektionen/registry.js',
   './js/sektionen/tabelle.js',
   './js/vorlagen/builtin.js',
   './js/vorlagen/vorlagen.js',
+  './vendor/pdfmake/pdfmake.min.js',
+  './vendor/pdfmake/vfs_fonts.js',
 ];
 
 self.addEventListener('install', event => {

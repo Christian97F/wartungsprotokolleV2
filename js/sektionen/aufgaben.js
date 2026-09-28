@@ -1,5 +1,6 @@
 import { esc, eindeutigeId } from '../core/util.js';
 import { listenEditor } from './helfer.js';
+import { FARBE, untertitel } from './pdfhelfer.js';
 
 export default {
   typ: 'aufgaben',
@@ -46,5 +47,16 @@ export default {
       <div><div class="b-untertitel">Durchgeführt</div><ul class="b-liste">${liste('erledigt')}</ul></div>
       <div><div class="b-untertitel">Geplant für nächste Wartung</div><ul class="b-liste">${liste('geplant')}</ul></div>
     </div>`;
+  },
+
+  pdf(sek, werte) {
+    const liste = (key) => {
+      const eintraege = sek.elemente.filter(e => werte[e.id]?.[key]).map(e => e.label);
+      return eintraege.length ? { ul: eintraege } : { text: '–', color: FARBE.faint };
+    };
+    return { columns: [
+      { stack: [untertitel('Durchgeführt'), liste('erledigt')] },
+      { stack: [untertitel('Geplant für nächste Wartung'), liste('geplant')] },
+    ], columnGap: 20 };
   },
 };

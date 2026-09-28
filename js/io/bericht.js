@@ -3,11 +3,11 @@
 import { esc, formatDatum, formatMonat, istLeer, formatZahl } from '../core/util.js';
 import { modul } from '../sektionen/registry.js';
 import { berichtSektion, fotosBericht } from '../sektionen/helfer.js';
-import { KERN_STAMMDATEN, auswertung, ERGEBNISSE } from '../core/model.js';
+import { KERN_STAMMDATEN, auswertung, ERGEBNISSE, unterschriftFelder, UNTERSCHRIFT_STANDARD } from '../core/model.js';
 
 const PRIO = { hoch: 'hoch', mittel: 'mittel', niedrig: 'niedrig' };
 
-function eckdaten(p) {
+export function eckdaten(p) {
   const s = p.anlage?.stammdaten || {};
   const zeilen = [
     ['Kunde', p.meta.kunde || s.kunde],
@@ -25,7 +25,7 @@ function eckdaten(p) {
   return zeilen.filter(([, w]) => !istLeer(w));
 }
 
-export function berichtHtml(p, firma = {}) {
+export function berichtHtml(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
   const s = p.anlage?.stammdaten || {};
   const a = auswertung(p);
   const erg = ERGEBNISSE[p.ergebnis];
@@ -46,8 +46,7 @@ export function berichtHtml(p, firma = {}) {
       </tbody></table>` : '<p class="b-leer">Keine Mängel festgestellt.</p>';
 
   const u = p.unterschriften || {};
-  const zeigeTechniker = u.zeigeTechniker !== false;
-  const zeigeKunde = u.zeigeKunde !== false;
+  const { techniker: zeigeTechniker, kunde: zeigeKunde } = unterschriftFelder(p, usStandard);
   const unterschrift = (bild, name, rolle) => `
     <div class="b-us">
       <div class="b-us-bild">${bild ? `<img src="${bild}" alt="">` : ''}</div>
@@ -113,21 +112,4 @@ export function berichtHtml(p, firma = {}) {
       </table>
       ${p.status !== 'abgeschlossen' ? '<div class="b-wasserzeichen">ENTWURF</div>' : ''}
     </article>`;
-}
-
-export async function berichtCss() {
-  const res = await fetch('./css/bericht.css');
-  return res.text();
-}
-
-export async function eigenstaendigesHtml(p, firma, titel) {
-  const css = await berichtCss();
-  return `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(titel)}</title>
-<style>${css}
-body{margin:0;background:#e9edf1}
-@media screen{.bericht{margin:24px auto;box-shadow:0 2px 16px rgba(0,0,0,.15)}}
-</style></head>
-<body>${berichtHtml(p, firma)}</body></html>`;
 }

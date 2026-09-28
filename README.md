@@ -15,7 +15,8 @@ js/core/              db (IndexedDB), model (Datenmodell), migration (Altdaten v
 js/sektionen/         Abschnitts-Typen (Strategie-Objekte, siehe registry.js):
                       checkliste, felder, tabelle, messreihe, batterien, aufgaben
 js/vorlagen/          mitgelieferte Vorlagen (NEA, DIN 6280-13, USV, leer)
-js/io/                austausch (Import/Export), bericht (HTML-Bericht für PDF)
+js/io/                austausch (Import/Export), bericht (HTML-Vorschau), pdf (PDF via pdfmake)
+vendor/pdfmake/       pdfmake 0.2.23 (MIT), lokal für den Offline-Betrieb
 js/screens/           Anlagen, Anlage-Editor, Prüfplan-Editor, Protokoll, Protokolle,
                       Bericht, Vorlagen, Daten
 ```
@@ -28,6 +29,7 @@ js/screens/           Anlagen, Anlage-Editor, Prüfplan-Editor, Protokoll, Proto
   Unterschriften. Entwürfe übernehmen Änderungen am Prüfplan beim Öffnen, abgeschlossene nicht.
 
 Neuer Abschnitts-Typ: Modul in `js/sektionen/` anlegen (Schnittstelle in `registry.js`) und dort registrieren.
+Jedes Modul liefert `bericht()` (HTML-Vorschau) und `pdf()` (pdfmake-Inhalt).
 
 ## Import/Export
 

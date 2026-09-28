@@ -1,5 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, listenEditor, wertText } from './helfer.js';
+import { FARBE, pdfWert, th, tabelle } from './pdfhelfer.js';
 
 export default {
   typ: 'tabelle',
@@ -67,4 +68,14 @@ export default {
         ${sek.spalten.map(s => `<td class="b-zahl">${wertText(werte[z.id]?.[s.id], z.einheit)}</td>`).join('')}</tr>`).join('')}
       </tbody>
     </table>`,
+
+  pdf: (sek, werte) => tabelle(
+    ['*', ...sek.spalten.map(() => 90)],
+    ['', ...sek.spalten.map(s => th(s.label, 'right'))].map(x => x === '' ? { text: '' } : x),
+    sek.zeilen.map(z => [
+      { text: z.label, color: FARBE.soft },
+      ...sek.spalten.map(s => ({ ...pdfWert(werte[z.id]?.[s.id], z.einheit), alignment: 'right' })),
+    ]),
+    { raster: true },
+  ),
 };

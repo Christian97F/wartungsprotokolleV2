@@ -3,7 +3,7 @@
 //   aktiverPlan(sek) → sek | null                                   – Snapshot fürs Protokoll
 //   initWerte(sek, werte), formular(sek, werte, pfad), aktion?(…)   – Protokoll-Formular
 //   pruefe(sek, werte) → { gesamt, offen[] }, maengel(sek, werte)  – Auswertung
-//   bericht(sek, werte)                                             – PDF-Bericht
+//   bericht(sek, werte) – HTML-Vorschau, pdf(sek, werte) – PDF (pdfmake)
 import checkliste from './checkliste.js';
 import felder from './felder.js';
 import tabelle from './tabelle.js';

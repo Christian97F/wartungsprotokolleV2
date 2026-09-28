@@ -68,9 +68,9 @@ export function fotoLeiste(pfad, fotos = []) {
       <button type="button" class="foto-weg" data-foto-weg="${p}" data-i="${i}" title="Foto entfernen">${icon('schliessen')}</button>
     </figure>`).join('')}
     <label class="btn btn-ghost btn-sm foto-neu">${icon('kamera')}Foto
-      <input type="file" accept="image/*" capture="environment" data-foto-neu="${p}" hidden></label>
+      <input type="file" accept="image/*" capture="environment" data-foto-neu="${p}" class="datei-input"></label>
     <label class="btn btn-ghost btn-sm foto-neu">${icon('bild')}Bild wählen
-      <input type="file" accept="image/*" multiple data-foto-neu="${p}" hidden></label>
+      <input type="file" accept="image/*" multiple data-foto-neu="${p}" class="datei-input"></label>
   </div>`;
 }
 

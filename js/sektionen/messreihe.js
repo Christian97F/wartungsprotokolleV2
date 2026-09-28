@@ -1,6 +1,7 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { listenEditor, wertText } from './helfer.js';
+import { FARBE, pdfWert, th, tabelle } from './pdfhelfer.js';
 import { FELD_SPALTEN, feldFormular } from './felder.js';
 
 const leererEintrag = () => ({});
@@ -76,5 +77,18 @@ export default {
       <tbody>${sek.felder.map(f => `<tr><td>${esc(f.label)}</td>
         ${werte.map(e => `<td class="${f.typ === 'zahl' ? 'b-zahl' : ''}">${wertText(e[f.id], f.einheit)}</td>`).join('')}</tr>`).join('')}
       </tbody></table>`;
+  },
+
+  pdf(sek, werte) {
+    if (!werte.length) return { text: 'Keine Einträge.', color: FARBE.faint };
+    return tabelle(
+      ['*', ...werte.map(() => 80)],
+      [{ text: '' }, ...werte.map((_, i) => th(`${sek.eintragLabel} ${i + 1}`, 'right'))],
+      sek.felder.map(f => [
+        { text: f.label, color: FARBE.soft },
+        ...werte.map(e => ({ ...pdfWert(e[f.id], f.einheit), alignment: 'right' })),
+      ]),
+      { raster: true },
+    );
   },
 };
