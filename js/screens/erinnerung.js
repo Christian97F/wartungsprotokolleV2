@@ -45,12 +45,47 @@ async function importieren(dateien) {
   return z;
 }
 
-export async function taeglicheErinnerung() {
+// Wann welche Erinnerung zuletzt angezeigt wurde (gerätebezogen, nicht im Backup)
+const merkeGezeigt = (art) => DB.setzeEinstellung(`erinnerungGezeigt_${art}`, new Date().toISOString());
+const heuteGezeigt = async (art) => istHeute(await DB.einstellung(`erinnerungGezeigt_${art}`));
+let laeuft = false;
+
+/**
+ * Beim Start immer; beim Zurückkehren aus dem Hintergrund jede Erinnerung (Import, Sicherung)
+ * höchstens einmal am Tag.
+ */
+export async function taeglicheErinnerung({ ausHintergrund = false } = {}) {
+  if (laeuft || document.querySelector('dialog[open]')) return;
+  laeuft = true;
+  try {
+    await erinnern(ausHintergrund);
+  } finally {
+    laeuft = false;
+  }
+}
+
+// Kurze Wechsel (Teilen-Menü, Dateiauswahl, Kamera) sollen keine Erinnerung auslösen
+const MIN_HINTERGRUND_MS = 60_000;
+
+export function hintergrundUeberwachen() {
+  let verstecktSeit = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { verstecktSeit = Date.now(); return; }
+    if (verstecktSeit && Date.now() - verstecktSeit >= MIN_HINTERGRUND_MS) {
+      taeglicheErinnerung({ ausHintergrund: true }).catch(e => console.warn('Erinnerung:', e));
+    }
+    verstecktSeit = null;
+  });
+}
+
+async function erinnern(ausHintergrund) {
   const e = await einstellung();
   const [letzterImport, letztesBackup] = await Promise.all([DB.einstellung('letzterImport'), DB.einstellung('letztesBackup')]);
   if (e.aktiv && !istHeute(letzterImport)) {
+    if (ausHintergrund && await heuteGezeigt('import')) return;
     let dateien = null;
     const auswahl = importAuswahl(d => { dateien = d; });
+    await merkeGezeigt('import');
     await dialog({
       titel: 'Daten aktualisieren',
       inhalt: `
@@ -66,6 +101,7 @@ export async function taeglicheErinnerung() {
     if (dateien) await importieren(dateien);
     return;
   }
+  if (ausHintergrund && await heuteGezeigt('backup')) return;
   await backupErinnerung();
 }
 
@@ -76,6 +112,7 @@ export async function backupErinnerung() {
   const [ungesichert, letzterImport, letztesBackup] = await Promise.all([
     DB.einstellung('ungesichert'), DB.einstellung('letzterImport'), DB.einstellung('letztesBackup')]);
   if (!ungesichert || !istHeute(letzterImport)) return;
+  await merkeGezeigt('backup');
   const wahl = await dialog({
     titel: 'Sicherung hochladen',
     inhalt: `
