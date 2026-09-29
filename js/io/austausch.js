@@ -57,12 +57,13 @@ export async function ausgeben(blob, name, { teilen = false } = {}) {
   return 'geladen';
 }
 
-const alsJson = (obj) => new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+export const alsJson = (obj) => new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
 
 // ── Export ───────────────────────────────────────────────────
 
-// Einstellungen, die mit ins Backup gehen (Briefkopf inkl. Logo, Standard-Techniker, Unterschriftsfelder)
-const EINSTELLUNGEN = ['firma', 'techniker', 'unterschriftFelder', 'syncErinnerung'];
+// Einstellungen, die mit ins Backup gehen (Briefkopf inkl. Logo, Unterschriftsfelder, Erinnerung).
+// Techniker und seine Unterschrift sind gerätebezogen und gehören nicht in die Sicherung
+const EINSTELLUNGEN = ['firma', 'unterschriftFelder', 'syncErinnerung'];
 
 async function sicherbareEinstellungen() {
   const werte = await Promise.all(EINSTELLUNGEN.map(k => DB.einstellung(k)));

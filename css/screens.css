@@ -288,8 +288,13 @@ a.kz:hover { border-color: var(--line-strong); }
 .us-linie { position: absolute; left: 16px; right: 16px; bottom: 34px; border-bottom: 1px solid #C7D0D9; pointer-events: none; }
 .us-platzhalter { position: absolute; left: 16px; bottom: 12px; font-size: 12px; color: #9AA6B4; pointer-events: none; display: none; }
 .us-feld.us-leer .us-platzhalter { display: block; }
-.us-leeren { position: absolute; top: 4px; right: 4px; color: #7C8AA0; }
+.us-knoepfe { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; }
+.us-knoepfe .btn-icon { color: #7C8AA0; }
 .us-feld.us-leer .us-leeren { display: none; }
+.us-feld.us-gross { height: auto; width: min(100%, calc(62dvh * var(--r, 3))); aspect-ratio: var(--r, 3); margin-inline: auto; }
+.us-gross .us-linie { bottom: 22%; }
+.us-gross .us-platzhalter { font-size: 15px; }
+.dlg.dlg-unterschrift { width: min(1200px, calc(100vw - 24px)); max-width: none; }
 .unterschriften .inp { margin-top: 6px; }
 .us-wahl { margin-top: var(--s-4); }
 .us-wahl .knopfreihe { margin: 0; gap: var(--s-2) var(--s-5); }
@@ -403,7 +408,7 @@ a.kz:hover { border-color: var(--line-strong); }
 /* Gesperrtes Protokoll: Bearbeitungs-Knöpfe ausblenden */
 fieldset:disabled [data-w-aktion],
 fieldset:disabled [data-m-aktion],
-fieldset:disabled .us-leeren { display: none; }
+fieldset:disabled .us-knoepfe { display: none; }
 
 /* Fotos */
 .fotos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-2); flex-basis: 100%; }
@@ -471,3 +476,8 @@ fieldset:disabled .foto-weg, fieldset:disabled .foto-neu { display: none; }
 .ue-liste li + li { border-top: 1px solid var(--line); }
 .ue-liste small { display: block; color: var(--ink-faint); font-size: 12px; }
 .ue-bestaetigung { margin-top: var(--s-3); font-weight: 600; }
+
+/* Gesperrte Sicherung / Notfall */
+.notfall-link { display: block; margin: var(--s-4) auto 0; font-size: 13px; color: var(--ink-faint); }
+.dlg-liste { margin: 0 0 var(--s-3); padding-left: 1.2em; color: var(--ink-soft); }
+.dlg-liste li + li { margin-top: 4px; }

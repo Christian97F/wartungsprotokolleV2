@@ -94,28 +94,59 @@ export async function backupErinnerung() {
 
 /**
  * Komplettsicherung mit Schutz: Ohne Import von heute fehlen evtl. Änderungen anderer Geräte,
- * und die neue Datei würde die aktuelle am Ablageort ersetzen.
+ * und die neue Datei würde die aktuelle am Ablageort ersetzen. Daher gesperrt – nur mit Notfall-Bestätigung.
  */
+const NOTFALL_WORT = 'NOTFALL';
+
+async function notfallBestaetigen() {
+  const wahl = await dialog({
+    titel: 'Notfall-Sicherung',
+    inhalt: `
+      <p class="dlg-text">Nur verwenden, wenn es wirklich keine aktuellere Sicherung gibt, z. B.:</p>
+      <ul class="dlg-liste">
+        <li>dies ist das erste Gerät, am Ablageort liegt noch keine Sicherung,</li>
+        <li>die Datei am Ablageort ist beschädigt oder nicht erreichbar.</li>
+      </ul>
+      <div class="banner banner-fehler">${icon('warnung')}<div><strong>Risiko</strong>
+        <span>Hat ein anderes Gerät inzwischen eine Sicherung hochgeladen, überschreibt diese Datei dessen Änderungen.</span></div></div>
+      <label class="feld"><span class="feld-label">Zum Bestätigen „${NOTFALL_WORT}“ eingeben</span>
+        <input class="inp" type="text" name="notfall" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>`,
+    aktionen: [
+      { label: 'Abbrechen', wert: null },
+      { label: 'Notfall-Sicherung erstellen', wert: 'ok', art: 'danger', icon: 'export' },
+    ],
+    onOpen: (dlg) => {
+      const knopf = dlg.querySelector('[data-dlg-aktion="1"]');
+      knopf.disabled = true;
+      dlg.querySelector('[name="notfall"]').addEventListener('input', e => {
+        knopf.disabled = e.target.value.trim().toUpperCase() !== NOTFALL_WORT;
+      });
+    },
+  });
+  return wahl === 'ok';
+}
+
 export async function sicherungErstellen({ teilen = false, geprueft = false } = {}) {
   if (!geprueft && !istHeute(await DB.einstellung('letzterImport'))) {
     let dateien = null;
     const auswahl = importAuswahl(d => { dateien = d; });
     const wahl = await dialog({
-      titel: 'Erst importieren?',
+      titel: 'Erst importieren',
       inhalt: `
-        <div class="banner banner-fehler">${icon('warnung')}<div><strong>Heute noch nicht importiert</strong>
-          <span>Änderungen anderer Geräte fehlen in dieser Sicherung. Ersetzt sie die aktuelle Datei am Ablageort, gehen diese Änderungen verloren.</span></div></div>
-        <p class="dlg-text">Bitte zuerst die aktuelle Sicherung importieren und danach eine neue erstellen.</p>
+        <div class="banner banner-fehler">${icon('schloss')}<div><strong>Sicherung gesperrt – heute noch nicht importiert</strong>
+          <span>Änderungen anderer Geräte würden in dieser Sicherung fehlen. Ersetzt sie die aktuelle Datei am Ablageort, gehen diese Änderungen verloren.</span></div></div>
+        <p class="dlg-text">Bitte zuerst die aktuelle Sicherung importieren. Danach kann eine neue erstellt werden.</p>
         ${hinweisHtml(await einstellung())}
-        ${auswahl.html}`,
-      aktionen: [
-        { label: 'Abbrechen', wert: null },
-        { label: 'Trotzdem sichern', wert: 'trotzdem', art: 'danger-leise' },
-      ],
-      onOpen: auswahl.binde,
+        ${auswahl.html}
+        <button type="button" class="link notfall-link" data-notfall>Nichts zum Importieren? Notfall-Sicherung …</button>`,
+      aktionen: [{ label: 'Abbrechen', wert: null }],
+      onOpen: (dlg, schliessen) => {
+        auswahl.binde(dlg, schliessen);
+        dlg.querySelector('[data-notfall]').addEventListener('click', () => schliessen('notfall'));
+      },
     });
     if (dateien) { await importieren(dateien); return; }
-    if (wahl !== 'trotzdem') return;
+    if (wahl !== 'notfall' || !await notfallBestaetigen()) return;
   }
   try {
     const r = await exportBackup({ teilen });

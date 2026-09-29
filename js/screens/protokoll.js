@@ -16,6 +16,7 @@ import { berichtHtml } from '../io/bericht.js';
 
 let p = null;
 let usStandard = UNTERSCHRIFT_STANDARD;
+let meineUnterschrift = null; // gerätebezogen, nicht im Backup
 let el = null;
 let speichertGleich = null;
 let ausstehend = false;
@@ -134,7 +135,8 @@ function abschlussHtml() {
         </div>
       </div>
       <div class="unterschriften">
-        <div class="feld" data-us="zeigeTechniker" ${zeige.techniker ? '' : 'hidden'}><span class="feld-label">Unterschrift Techniker</span><div id="us-techniker"></div></div>
+        <div class="feld" data-us="zeigeTechniker" ${zeige.techniker ? '' : 'hidden'}><span class="feld-label">Unterschrift Techniker</span><div id="us-techniker"></div>
+          ${meineUnterschrift?.bild && !gesperrt() ? `<button type="button" class="btn btn-ghost btn-sm" id="us-meine">${icon('stift')}Gespeicherte Unterschrift${meineUnterschrift.name ? ` (${esc(meineUnterschrift.name)})` : ''} einsetzen</button>` : ''}</div>
         <div class="feld" data-us="zeigeKunde" ${zeige.kunde ? '' : 'hidden'}><span class="feld-label">Unterschrift Kunde</span><div id="us-kunde"></div>
           <input class="inp" type="text" data-w="unterschriften.kunde_name" data-wt="text" value="${esc(u.kunde_name)}" placeholder="Name in Druckbuchstaben"></div>
       </div>
@@ -244,7 +246,8 @@ function zeichne() {
       </div>
     </div>`;
 
-  unterschriftFeld(el.querySelector('#us-techniker'), p.unterschriften?.techniker, v => { p.unterschriften.techniker = v; geaendert(); }, { gesperrt });
+  const usTechniker = unterschriftFeld(el.querySelector('#us-techniker'), p.unterschriften?.techniker, v => { p.unterschriften.techniker = v; geaendert(); }, { gesperrt });
+  el.querySelector('#us-meine')?.addEventListener('click', () => { if (!gesperrt()) usTechniker.setze(meineUnterschrift.bild); });
   unterschriftFeld(el.querySelector('#us-kunde'), p.unterschriften?.kunde, v => { p.unterschriften.kunde = v; geaendert(); }, { gesperrt });
   el.querySelector('#abschliessen')?.addEventListener('click', abschliessen);
   el.querySelector('#entsperren')?.addEventListener('click', entsperren);
@@ -556,6 +559,7 @@ export async function render(container, params, query) {
   if (!p) throw new Error('Protokoll nicht gefunden');
   p.unterschriften ??= { techniker: null, kunde: null, kunde_name: '' };
   usStandard = await DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD);
+  meineUnterschrift = await DB.einstellung('technikerUnterschrift');
   p.maengel ??= [];
   if (!gesperrt()) {
     const anlage = await DB.anlagen.hole(p.anlageId);

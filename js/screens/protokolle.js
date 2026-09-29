@@ -6,6 +6,7 @@ import { setzeKopf } from '../core/shell.js';
 import { navigiere } from '../core/router.js';
 import { anlagenTitel, auswertung, ERGEBNISSE, planAktualisieren } from '../core/model.js';
 import { exportProtokolle } from '../io/austausch.js';
+import { exportAltProtokoll } from '../io/altformat.js'; // ALTFORMAT
 
 let filter = { status: 'alle', suche: '' };
 
@@ -143,6 +144,7 @@ export async function render(el, _params, query) {
         navigiere(`/protokoll/${kopie.id}`);
       } },
       { label: 'Exportieren', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportProtokolle([p.id], { teilen: true })}`, 'success') },
+      { label: 'Exportieren (altes Format)', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportAltProtokoll(p.id, { teilen: true })}`, 'success') }, // ALTFORMAT
       '-',
       { label: 'Löschen', icon: 'loeschen', gefahr: true, aktion: async () => {
         if (!await bestaetigen(`Protokoll vom ${formatDatum(p.datum)} löschen?`, { titel: 'Protokoll löschen', ja: 'Löschen' })) return;

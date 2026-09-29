@@ -7,6 +7,7 @@ import { navigiere } from '../core/router.js';
 import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import { bildVerkleinern } from '../core/bild.js';
 import { thema, setzeThema } from '../core/thema.js';
+import { unterschriftFeld } from './unterschrift.js';
 import { ERINNERUNG_STANDARD, backupErinnerung, sicherungErstellen } from './erinnerung.js';
 import {
   leseDatei, normalisiere, analysiere, importiere, beschreibe,
@@ -68,7 +69,6 @@ export async function importDialog(dateien) {
   const e = analyse.einstellungen || {};
   const einstellungenText = [
     e.firma && (e.firma.logo ? 'Briefkopf mit Logo' : 'Briefkopf'),
-    e.techniker && 'Standard-Techniker',
     e.unterschriftFelder && 'Unterschriftsfelder',
     e.syncErinnerung?.hinweis && 'Hinweis zur Aktualisierung',
   ].filter(Boolean).join(', ');
@@ -188,12 +188,13 @@ export async function importDialog(dateien) {
 export async function render(el) {
   setzeKopf({ titel: 'Daten & Einstellungen', eyebrow: 'Import · Export · Briefkopf' });
 
-  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder, erinnerung, ungesichert] = await Promise.all([
+  const [anlagen, protokolle, vorlagen, firma, techniker, letztesBackup, usFelder, erinnerung, ungesichert, meineUnterschrift] = await Promise.all([
     DB.anlagen.alle(), DB.protokolle.alle(), DB.vorlagen.alle(),
     DB.einstellung('firma', {}), DB.einstellung('techniker', ''), DB.einstellung('letztesBackup'),
     DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD),
     DB.einstellung('syncErinnerung', ERINNERUNG_STANDARD),
     DB.einstellung('ungesichert'),
+    DB.einstellung('technikerUnterschrift'),
   ]);
   const f = firma || {};
   const teilen = kannTeilen();
@@ -231,6 +232,7 @@ export async function render(el) {
           <button class="btn btn-primary" data-x="backup">${icon('export')}Komplettsicherung</button>
           ${teilen ? `<button class="btn btn-ghost" data-x="backup-teilen">${icon('teilen')}Sicherung teilen</button>` : ''}
           <button class="btn btn-ghost" data-x="csv">${icon('liste')}Übersicht als CSV</button>
+          <button class="btn btn-ghost" data-x="alt">${icon('export')}Anlagen im alten Format</button><!-- ALTFORMAT -->
         </div>
         <p class="hinweis">Einzelne Anlagen, Protokolle und Vorlagen lassen sich direkt in den jeweiligen Listen über das Menü ${icon('mehr')} exportieren.</p>
       </section>
@@ -239,7 +241,6 @@ export async function render(el) {
         <h2 class="karte-titel">${icon('pdf')} Briefkopf für Berichte</h2>
         <div class="feldraster">
           <label class="feld"><span class="feld-label">Firmenname</span><input class="inp" type="text" data-f="name" value="${esc(f.name)}"></label>
-          <label class="feld"><span class="feld-label">Standard-Techniker</span><input class="inp" type="text" id="techniker" value="${esc(techniker)}" placeholder="wird in neue Protokolle eingetragen"></label>
           <label class="feld"><span class="feld-label">Anschrift</span><textarea class="inp" rows="3" data-f="adresse">${esc(f.adresse)}</textarea></label>
           <label class="feld"><span class="feld-label">Kontakt</span><textarea class="inp" rows="3" data-f="kontakt" placeholder="Telefon, E-Mail, Web">${esc(f.kontakt)}</textarea></label>
         </div>
@@ -255,6 +256,16 @@ export async function render(el) {
           <div class="logo-vorschau" id="logo-vorschau">${f.logo ? `<img src="${f.logo}" alt="Logo">` : '<span>Kein Logo</span>'}</div>
           <label class="btn btn-ghost">${icon('datei')}Logo wählen<input type="file" accept="image/*" id="logo" class="datei-input"></label>
           ${f.logo ? `<button class="btn btn-ghost" id="logo-weg">${icon('loeschen')}Entfernen</button>` : ''}
+        </div>
+      </section>
+
+      <section class="karte">
+        <h2 class="karte-titel">${icon('person')} Techniker <span class="tag tag-leise">nur dieses Gerät</span></h2>
+        <label class="feld"><span class="feld-label">Standard-Techniker</span><input class="inp" type="text" id="techniker" value="${esc(techniker)}" placeholder="wird in neue Protokolle eingetragen"></label>
+        <div class="feld">
+          <span class="feld-label">Gespeicherte Unterschrift</span>
+          <div id="meine-unterschrift"></div>
+          <span class="feld-hinweis">Lässt sich im Protokoll per Knopf einsetzen. Name und Unterschrift werden nicht in Sicherungen übernommen.</span>
         </div>
       </section>
 
@@ -287,6 +298,7 @@ export async function render(el) {
     if (!x) return;
     try {
       if (x.dataset.x === 'csv') toast(`Exportiert: ${await exportUebersichtCsv()}`, 'success');
+      else if (x.dataset.x === 'alt') toast(`Exportiert: ${await (await import('../io/altformat.js')).exportAltAnlagen({ teilen: kannTeilen() })}`, 'success'); // ALTFORMAT
       else await sicherungErstellen({ teilen: x.dataset.x === 'backup-teilen' });
     } catch (err) {
       toast(`Export fehlgeschlagen: ${err.message}`, 'error');
@@ -303,7 +315,16 @@ export async function render(el) {
     usFelder[cb.dataset.us] = cb.checked;
     DB.aendereEinstellung('unterschriftFelder', { ...usFelder });
   }));
-  el.querySelector('#techniker').addEventListener('change', e => DB.aendereEinstellung('techniker', e.target.value.trim()));
+  el.querySelector('#techniker').addEventListener('change', async e => {
+    const name = e.target.value.trim();
+    await DB.setzeEinstellung('techniker', name);
+    const us = await DB.einstellung('technikerUnterschrift');
+    if (us) await DB.setzeEinstellung('technikerUnterschrift', { ...us, name });
+  });
+  unterschriftFeld(el.querySelector('#meine-unterschrift'), meineUnterschrift?.bild, async (bild) => {
+    await DB.setzeEinstellung('technikerUnterschrift', bild ? { bild, name: el.querySelector('#techniker').value.trim() } : null);
+    toast(bild ? 'Unterschrift gespeichert' : 'Unterschrift entfernt', 'success', 1500);
+  });
   el.querySelector('#logo').addEventListener('change', async e => {
     const d = e.target.files[0];
     if (!d) return;
