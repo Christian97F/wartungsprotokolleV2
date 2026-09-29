@@ -526,6 +526,11 @@ function kopf() {
         ...(vorher ? [{ label: `Letzte Wartung ansehen (${formatDatum(vorher.datum)})`, icon: 'auge', aktion: letztenBerichtZeigen }] : []),
         { label: 'Prüfplan der Anlage bearbeiten', icon: 'einstellungen', aktion: () => navigiere(`/anlage/${encodeURIComponent(p.anlageId)}?tab=plan`) },
         { label: 'Als Datei exportieren', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportProtokolle([p.id], { teilen: true })}`, 'success') },
+        { label: 'Exportieren (altes Format)', icon: 'export', aktion: async () => { // ALTFORMAT
+          await jetztSpeichern();
+          const { exportAltProtokoll } = await import('../io/altformat.js');
+          toast(`Exportiert: ${await exportAltProtokoll(p.id, { teilen: true })}`, 'success');
+        } },
         '-',
         { label: 'Protokoll löschen', icon: 'loeschen', gefahr: true, aktion: async () => {
           if (!await bestaetigen('Dieses Protokoll endgültig löschen?', { titel: 'Protokoll löschen', ja: 'Löschen' })) return;

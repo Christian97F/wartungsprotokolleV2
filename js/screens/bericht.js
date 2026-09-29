@@ -45,6 +45,16 @@ async function pdfAusgeben(blob, name, teilen) {
   });
 }
 
+// ALTFORMAT
+async function altExport(id, teilen) {
+  try {
+    const { exportAltProtokoll } = await import('../io/altformat.js');
+    toast(`Exportiert: ${await exportAltProtokoll(id, { teilen })}`, 'success');
+  } catch (e) {
+    toast(`Export fehlgeschlagen: ${e.message}`, 'error');
+  }
+}
+
 export async function render(el, params) {
   const p = await DB.protokolle.hole(params.id);
   if (!p) throw new Error('Protokoll nicht gefunden');
@@ -109,6 +119,7 @@ export async function render(el, params) {
       <div class="bw-knoepfe">
         <button class="btn btn-primary" data-b="pdf">${icon(teilen ? 'teilen' : 'pdf')}${teilen ? 'PDF erstellen & teilen' : 'PDF herunterladen'}</button>
         <button class="btn btn-ghost" data-b="drucken">${icon('drucken')}Drucken</button>
+        <button class="btn btn-ghost" data-b="alt">${icon('export')}JSON (altes Format)</button><!-- ALTFORMAT -->
       </div>
       <p class="hinweis">${teilen
         ? 'Über „Teilen“ lässt sich das PDF in „Dateien“ sichern, per Mail senden oder drucken.'
@@ -127,6 +138,7 @@ export async function render(el, params) {
     const b = e.target.closest('[data-b]');
     if (!b) return;
     if (b.dataset.b === 'pdf') pdf();
+    else if (b.dataset.b === 'alt') altExport(p.id, teilen); // ALTFORMAT
     else drucken();
   });
   return () => ro.disconnect();
