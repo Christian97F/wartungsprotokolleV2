@@ -95,6 +95,7 @@ export function berichtHtml(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
         <div><dt>Datum</dt><dd>${formatDatum(p.datum)}</dd></div>
         <div><dt>Techniker</dt><dd>${esc(p.meta.techniker || '–')}</dd></div>
         ${p.meta.auftrag ? `<div><dt>Auftrag</dt><dd>${esc(p.meta.auftrag)}</dd></div>` : ''}
+        ${p.meta.bestellnr ? `<div><dt>Bestellnr. Kunde</dt><dd>${esc(p.meta.bestellnr)}</dd></div>` : ''}
         <div><dt>Status</dt><dd>${p.status === 'abgeschlossen' ? 'abgeschlossen' : 'Entwurf'}</dd></div>
       </dl>
 

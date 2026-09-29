@@ -4,7 +4,7 @@ import { DB } from '../core/db.js';
 import { dateiname, heuteIso, jetztIso, istLeer } from '../core/util.js';
 import { anlagenTitel, ERGEBNISSE, auswertung } from '../core/model.js';
 import {
-  istAltAggregat, istAltProtokoll, migriereAggregat, migriereProtokoll, ersatzAnlage,
+  istAltAggregat, istAltProtokoll, migriereAggregat, migriereProtokoll, ersatzAnlage, bestellnrAusAnlage, ohneBestellnrFeld,
 } from '../core/migration.js';
 
 export const FORMAT = 'wartungsprotokolle';
@@ -120,12 +120,12 @@ export async function exportUebersichtCsv(opts) {
   const protokolle = await DB.protokolle.alle();
   protokolle.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
   const zelle = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const kopf = ['Datum', 'Kommission', 'Bezeichnung', 'Kunde', 'Standort', 'Vorlage', 'Techniker', 'Auftrag',
+  const kopf = ['Datum', 'Kommission', 'Bezeichnung', 'Kunde', 'Standort', 'Vorlage', 'Techniker', 'Auftrag', 'Bestellnr. Kunde',
     'Status', 'Ergebnis', 'Mängel', 'Nächste Prüfung'];
   const zeilen = protokolle.map(p => {
     const s = p.anlage?.stammdaten || {};
     return [p.datum, s.kommission, s.bezeichnung, p.meta.kunde, p.meta.standort, p.anlage?.vorlageName,
-      p.meta.techniker, p.meta.auftrag, p.status === 'abgeschlossen' ? 'Abgeschlossen' : 'Entwurf',
+      p.meta.techniker, p.meta.auftrag, p.meta.bestellnr, p.status === 'abgeschlossen' ? 'Abgeschlossen' : 'Entwurf',
       ERGEBNISSE[p.ergebnis]?.label || '', auswertung(p).maengel.length, p.naechste_pruefung].map(zelle).join(';');
   });
   // BOM, damit Excel UTF-8 erkennt
@@ -150,6 +150,9 @@ export async function leseDatei(datei) {
 export async function normalisiere(daten, name = '') {
   if (daten?.format === FORMAT) {
     if (daten.version > VERSION) throw new Error(`„${name}“ stammt aus einer neueren App-Version.`);
+    // Dateien von Geräten mit älterem Stand: Bestellnummer gehört nicht mehr in die Stammdaten
+    (daten.anlagen || []).forEach(bestellnrAusAnlage);
+    (daten.vorlagen || []).forEach(v => ohneBestellnrFeld(v.stammdaten));
     return {
       anlagen: daten.anlagen || [], protokolle: daten.protokolle || [],
       vorlagen: daten.vorlagen || [], einstellungen: daten.einstellungen || null,

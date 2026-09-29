@@ -56,6 +56,8 @@ function metaHtml() {
           <input class="inp" type="text" data-w="meta.techniker" data-wt="text" value="${esc(m.techniker)}" placeholder="Vor- und Nachname" autocomplete="name"></label>
         <label class="feld"><span class="feld-label">Auftrags-/Projektnummer</span>
           <input class="inp" type="text" data-w="meta.auftrag" data-wt="text" value="${esc(m.auftrag)}"></label>
+        <label class="feld"><span class="feld-label">Kunden-Bestellnummer</span>
+          <input class="inp" type="text" data-w="meta.bestellnr" data-wt="text" value="${esc(m.bestellnr || '')}"></label>
         <label class="feld"><span class="feld-label">Kunde</span>
           <input class="inp" type="text" data-w="meta.kunde" data-wt="text" value="${esc(m.kunde)}"></label>
         <label class="feld feld-voll"><span class="feld-label">Standort</span>

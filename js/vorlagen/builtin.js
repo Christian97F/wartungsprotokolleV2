@@ -44,7 +44,6 @@ const NEA = {
       feld('Motor_Typ', 'Motor-Typ'),
       feld('Motor_NR', 'Motor-Nummer'),
       feld('Lastbetrieb', 'Lastbetrieb', 'auswahl', { optionen: ['Übergabe mit Synchronisierung', 'Übergabe ohne Synchronisierung', 'Inselbetrieb', 'Parallelbetrieb'] }),
-      feld('Kunden_Bestellnr', 'Kunden-Bestellnummer'),
     ] },
     { id: 'generator', titel: 'Generator & Regler', felder: [
       feld('Generator_Hersteller', 'Generator – Hersteller'),
