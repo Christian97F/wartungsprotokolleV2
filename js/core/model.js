@@ -88,7 +88,6 @@ export function neuesProtokoll(anlage, { techniker = '' } = {}) {
     meta: {
       techniker,
       auftrag: '',
-      bestellnr: '',
       kunde: anlage.stammdaten.kunde || '',
       standort: anlage.stammdaten.standort || '',
     },

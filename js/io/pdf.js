@@ -103,13 +103,12 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
     },
   };
 
-  const metaZellen = [['Datum', formatDatum(p.datum)], ['Techniker', p.meta.techniker || '–'],
-    ['Auftrag', p.meta.auftrag || '–'], ...(p.meta.bestellnr ? [['Bestellnr. Kunde', p.meta.bestellnr]] : []),
-    ['Status', p.status === 'abgeschlossen' ? 'abgeschlossen' : 'Entwurf']];
   const meta = {
-    table: { widths: metaZellen.map(() => '*'), body: [
-      metaZellen.map(([l, w]) => ({ stack: [{ text: l.toUpperCase(), style: 'label' }, { text: w }] })),
-    ] },
+    table: { widths: ['*', '*', '*', '*'], body: [[
+      ...[['Datum', formatDatum(p.datum)], ['Techniker', p.meta.techniker || '–'],
+        ['Auftrag', p.meta.auftrag || '–'], ['Status', p.status === 'abgeschlossen' ? 'abgeschlossen' : 'Entwurf']]
+        .map(([l, w]) => ({ stack: [{ text: l.toUpperCase(), style: 'label' }, { text: w }] })),
+    ]] },
     layout: { fillColor: () => FARBE.sunken, hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6 },
     margin: [0, 10, 0, 0],
   };

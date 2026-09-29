@@ -44,7 +44,7 @@ const eigenKey = (id) => (id.startsWith('eigen_') ? id.slice(6) : id);
 const stoerKey = (el) => `${el.label}__${STOER_TYP[el.tag] || 'abstellend'}`;
 
 /** anlage: { id, stammdaten, zusatz, vertrag, notizen, erstellt_am, geaendert_am }, plan: Sektionen */
-function altAggregat(anlage, plan, bestellnr = '') {
+function altAggregat(anlage, plan) {
   const s = anlage.stammdaten || {};
   const z = anlage.zusatz || {};
   const sek = (id) => plan.find(x => x.id === id && aktiv(x));
@@ -58,7 +58,7 @@ function altAggregat(anlage, plan, bestellnr = '') {
     Wartungsvertrag: !!anlage.vertrag?.aktiv, Wartungsvertrag_NR: anlage.vertrag?.nummer || '', Text: anlage.notizen || '',
   };
   // Zusatzfelder, die das alte Format nicht kennt, landen in den Stammdaten
-  const bekannt = new Set([...STAMMDATEN, ...INTERVALLE, ...TECHNIK, 'Aufstellung', 'Lastbetrieb', 'Kunden_Bestellnr']);
+  const bekannt = new Set([...STAMMDATEN, ...INTERVALLE, ...TECHNIK, 'Aufstellung', 'Lastbetrieb']);
   for (const [k, v] of Object.entries(z)) if (!bekannt.has(k) && !istLeer(v)) stammdaten[k] = v;
 
   const technische_daten = nimm(TECHNIK);
@@ -80,7 +80,7 @@ function altAggregat(anlage, plan, bestellnr = '') {
     Typ: z.Aufstellung === 'Mobil' ? 'mobil' : 'stationaer',
     Lastbetrieb: LASTBETRIEB[z.Lastbetrieb] || z.Lastbetrieb || '',
     Hat_Startzaehler: aktiv(el('Betriebsdaten', 'startzaehler', 'zeilen')),
-    Kunden_Bestellnr: bestellnr,
+    Kunden_Bestellnr: '',
     Keine_DGUV: !aktiv(el('Arbeiten', 'dguv')),
     Generatorspannung_Typ: aktiv(el('Spannung_Frequenz', 'spannung_min')) ? 'variabel' : 'fest',
     Generatorfrequenz_Typ: aktiv(el('Spannung_Frequenz', 'frequenz_min')) ? 'variabel' : 'fest',
@@ -207,7 +207,7 @@ export async function exportAltProtokoll(id, opts) {
   const anlage = { id: p.anlageId, notizen: '', ...p.anlage, erstellt_am: p.erstellt_am, geaendert_am: p.geaendert_am };
   const s = p.anlage?.stammdaten || {};
   const name = `${dateiname('Wartung', s.kommission, s.kunde, s.standort, p.datum)}_altes-Format.json`;
-  await ausgeben(alsJson({ _typ: 'wartungsprotokoll', _version: '1.0', protokoll: altProtokoll(p), aggregat_config: altAggregat(anlage, p.plan, p.meta?.bestellnr || '') }), name, opts);
+  await ausgeben(alsJson({ _typ: 'wartungsprotokoll', _version: '1.0', protokoll: altProtokoll(p), aggregat_config: altAggregat(anlage, p.plan) }), name, opts);
   return name;
 }
 

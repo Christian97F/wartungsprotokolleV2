@@ -55,7 +55,7 @@ export async function render(el, _params, query) {
       .filter(p => !anlageFilter || p.anlageId === anlageFilter)
       .filter(p => filter.status === 'alle'
         || (filter.status === 'maengel' ? offeneMaengel(p) > 0 : p.status === filter.status))
-      .filter(p => !q || [...Object.values(p.anlage?.stammdaten || {}), p.meta.techniker, p.meta.auftrag, p.meta.bestellnr, p.meta.kunde, p.datum]
+      .filter(p => !q || [...Object.values(p.anlage?.stammdaten || {}), p.meta.techniker, p.meta.auftrag, p.meta.kunde, p.datum]
         .some(v => String(v || '').toLowerCase().includes(q)))
       .sort((a, b) => (b.datum || '').localeCompare(a.datum || '') || (b.geaendert_am || '').localeCompare(a.geaendert_am || ''));
   }

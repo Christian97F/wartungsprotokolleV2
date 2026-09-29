@@ -35,8 +35,6 @@ function altWert(gruppe, cfg, id) {
   return undefined;
 }
 
-const bestellnrNotiz = (notizen, nr) => [notizen, `Kunden-Bestellnr. (bisher in den Stammdaten): ${nr}`].filter(Boolean).join('\n');
-
 export function migriereAggregat(alt) {
   const s = alt.stammdaten || {};
   const t = alt.technische_daten || {};
@@ -61,8 +59,6 @@ export function migriereAggregat(alt) {
   }
   if (c.Typ) a.zusatz.Aufstellung = c.Typ === 'mobil' ? 'Mobil' : 'Stationär';
   if (c.Lastbetrieb) a.zusatz.Lastbetrieb = LASTBETRIEB[c.Lastbetrieb] || c.Lastbetrieb;
-  // Die Bestellnummer gehört zur einzelnen Wartung (Protokoll), nicht zur Anlage – als Notiz erhalten
-  if (c.Kunden_Bestellnr) a.notizen = bestellnrNotiz(a.notizen, c.Kunden_Bestellnr);
 
   const sek = (id) => a.pruefplan.find(x => x.id === id);
   const el = (sekId, elId, liste = 'elemente') => sek(sekId)[liste].find(x => x.id === elId);
@@ -295,56 +291,7 @@ export async function migriereDatenbank() {
     if (protokolle.length) await DB.protokolle.speichereViele(protokolle);
     await DB.setzeEinstellung('schema', 4);
   }
-  if (schema < 5) {
-    await migriereV5();
-    await DB.setzeEinstellung('schema', 5);
-  }
   return ergebnis;
-}
-
-// Schema 5: Kunden-Bestellnummer aus den Stammdaten (Anlage/Vorlage) ins Protokoll verschieben
-export const ohneBestellnrFeld = (gruppen) => {
-  let gefunden = false;
-  for (const g of gruppen || []) {
-    const vorher = g.felder.length;
-    g.felder = g.felder.filter(f => f.id !== 'Kunden_Bestellnr');
-    gefunden ||= g.felder.length !== vorher;
-  }
-  return gefunden;
-};
-
-/** Entfernt das Feld aus einer Anlage; ein eingetragener Wert wandert in die Notizen. */
-export function bestellnrAusAnlage(a) {
-  const nr = a.zusatz?.Kunden_Bestellnr;
-  const feld = ohneBestellnrFeld(a.zusatzFelder);
-  if (!feld && istLeer(nr)) return false;
-  if (!istLeer(nr)) a.notizen = bestellnrNotiz(a.notizen, nr);
-  if (a.zusatz) delete a.zusatz.Kunden_Bestellnr;
-  return true;
-}
-
-async function migriereV5() {
-  const vorlagen = (await DB.vorlagen.alle()).filter(v => ohneBestellnrFeld(v.stammdaten));
-  if (vorlagen.length) await DB.vorlagen.speichereViele(vorlagen);
-  const anlagen = await DB.anlagen.alle();
-  const protokolle = await DB.protokolle.alle();
-  const geaenderteAnlagen = [];
-  const geaenderteProtokolle = [];
-  for (const a of anlagen) {
-    const nr = a.zusatz?.Kunden_Bestellnr;
-    if (!bestellnrAusAnlage(a)) continue;
-    if (!istLeer(nr)) {
-      for (const p of protokolle) {
-        if (p.anlageId === a.id && p.status !== 'abgeschlossen' && !p.meta?.bestellnr) {
-          p.meta.bestellnr = String(nr);
-          geaenderteProtokolle.push(p);
-        }
-      }
-    }
-    geaenderteAnlagen.push(a);
-  }
-  if (geaenderteAnlagen.length) await DB.anlagen.speichereViele(geaenderteAnlagen);
-  if (geaenderteProtokolle.length) await DB.protokolle.speichereViele(geaenderteProtokolle);
 }
 
 async function migriereV2() {
