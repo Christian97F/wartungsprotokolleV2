@@ -18,7 +18,7 @@ async function pdfAusgeben(blob, name, teilen) {
   }
   const datei = new File([blob], name, { type: 'application/pdf' });
   try {
-    await navigator.share({ files: [datei], title: name });
+    await navigator.share({ files: [datei] });
     return;
   } catch (e) {
     if (e.name === 'AbortError') return;
@@ -33,7 +33,7 @@ async function pdfAusgeben(blob, name, teilen) {
     onOpen: (dlg, schliessen) => {
       dlg.querySelector('[data-dlg-aktion="1"]').addEventListener('click', e => {
         e.stopPropagation();
-        navigator.share({ files: [datei], title: name }).catch(() => {});
+        navigator.share({ files: [datei] }).catch(() => {});
         schliessen('teilen');
       });
       dlg.querySelector('[data-dlg-aktion="0"]').addEventListener('click', e => {

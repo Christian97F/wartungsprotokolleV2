@@ -47,7 +47,7 @@ export async function ausgeben(blob, name, { teilen = false } = {}) {
   if (teilen && kannTeilen()) {
     const datei = new File([blob], name, { type: blob.type });
     try {
-      await navigator.share({ files: [datei], title: name });
+      await navigator.share({ files: [datei] });
       return 'geteilt';
     } catch (e) {
       if (e.name === 'AbortError') return 'abgebrochen';
