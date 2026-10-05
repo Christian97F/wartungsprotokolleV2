@@ -167,7 +167,7 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD, { blanko = 
       { text: `${rolle}${name ? `: ${name}` : ''}`, style: 'klein' },
     ],
   });
-  const unterschriften = zeige.techniker || zeige.kunde ? [{
+  const unterschriften = !blanko && (zeige.techniker || zeige.kunde) ? [{
     unbreakable: true,
     margin: [0, 28, 0, 0],
     columns: [
