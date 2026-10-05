@@ -177,7 +177,7 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD, { blanko = 
     columnGap: 30,
   }] : [];
 
-  const fuss = blanko ? `${s.kommission || ''} · Wartungsprotokoll (Blanko)` : `${s.kommission || ''} · Wartungsprotokoll vom ${formatDatum(p.datum)}`;
+  const fuss = blanko ? `${s.kommission || ''} · Wartungsprotokoll` : `${s.kommission || ''} · Wartungsprotokoll vom ${formatDatum(p.datum)}`;
 
   return {
     pageSize: 'A4',
