@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, listenEditor, wertText } from './helfer.js';
-import { pdfWert, feldRaster } from './pdfhelfer.js';
+import { pdfWert, feldRaster, blankoFeld } from './pdfhelfer.js';
 
 export const FELDTYPEN = [
   ['zahl', 'Zahl / Messwert'],
@@ -69,5 +69,11 @@ export default {
     const kurz = sek.elemente.filter(f => f.typ !== 'textlang');
     const lang = sek.elemente.filter(f => f.typ === 'textlang');
     return { stack: [feldRaster(kurz.map(f => [f.label, wert(f)])), feldRaster(lang.map(f => [f.label, wert(f)]), 1)] };
+  },
+
+  blanko(sek) {
+    const kurz = sek.elemente.filter(f => f.typ !== 'textlang');
+    const lang = sek.elemente.filter(f => f.typ === 'textlang');
+    return { stack: [feldRaster(kurz.map(f => [f.label, blankoFeld(f)]), 2), feldRaster(lang.map(f => [f.label, blankoFeld(f)]), 1)] };
   },
 };

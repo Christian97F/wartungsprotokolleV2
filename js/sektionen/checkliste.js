@@ -3,7 +3,7 @@ import {
   eingabe, statusSchalter, listenEditor, fotoLeiste,
   wertText, statusZelle,
 } from './helfer.js';
-import { FARBE, pdfWert, pdfStatus, tabelle } from './pdfhelfer.js';
+import { FARBE, pdfWert, pdfStatus, tabelle, ankreuzen, schreiblinie, leer } from './pdfhelfer.js';
 
 const pruefpunkte = (sek) => sek.elemente.filter(e => e.art !== 'ueberschrift');
 
@@ -168,5 +168,27 @@ export default {
       return mangel ? zeile.map(z => ({ ...z, fillColor: FARBE.mangel })) : zeile;
     });
     return tabelle(hatMessung ? ['*', 130, 48] : ['*', 48], null, zeilen);
+  },
+
+  blanko(sek) {
+    const hatMessung = pruefpunkte(sek).some(e => e.messungen?.length);
+    const spalten = hatMessung ? 3 : 2;
+    const zeilen = sek.elemente.map(el => {
+      if (el.art === 'ueberschrift') {
+        return [{ text: el.label.toUpperCase(), style: 'zw', colSpan: spalten }, ...Array(spalten - 1).fill({})];
+      }
+      const zeile = [{ stack: [
+        { text: [el.label, el.tag ? { text: `  ${el.tag}`, style: 'tag' } : ''] },
+        el.hinweis ? { text: el.hinweis, style: 'klein' } : '',
+      ], margin: [0, 2, 0, 2] }];
+      if (hatMessung) {
+        zeile.push({ stack: (el.messungen || []).map(m => ({
+          columns: [{ text: m.label || '', style: 'klein', width: 52 }, schreiblinie(m.einheit)], margin: [0, 1, 0, 1],
+        })) });
+      }
+      zeile.push(el.bewertung !== false ? { ...ankreuzen(['i.O.', 'Mangel', 'n.g.']), margin: [0, 2, 0, 0] } : leer(8));
+      return zeile;
+    });
+    return tabelle(hatMessung ? ['*', 140, 128] : ['*', 128], null, zeilen);
   },
 };

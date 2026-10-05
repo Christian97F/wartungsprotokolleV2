@@ -156,6 +156,7 @@ export async function render(el) {
     menue(m, [
       { label: 'Neues Protokoll', icon: 'plus', aktion: () => navigiere(`/protokoll/neu?anlage=${encodeURIComponent(a.id)}`) },
       { label: `Protokolle (${info.anzahl || 0})`, icon: 'protokoll', aktion: () => navigiere(`/protokolle?anlage=${encodeURIComponent(a.id)}`) },
+      { label: 'Blanko-Protokoll (PDF)', icon: 'pdf', aktion: async () => (await import('./bericht.js')).blankoErstellen(a) },
       '-',
       { label: 'Duplizieren', icon: 'kopie', aktion: async () => {
         const kopie = { ...klon(a), id: erzeugeId('a_'), erstellt_am: jetztIso(), geaendert_am: jetztIso() };

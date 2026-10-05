@@ -2,8 +2,8 @@
 // Unabhängig vom Druckdialog: keine URL/Datum vom Browser, Seitenzahlen auf jeder Seite.
 import { formatDatum, formatMonat } from '../core/util.js';
 import { modul } from '../sektionen/registry.js';
-import { FARBE, feldRaster, th } from '../sektionen/pdfhelfer.js';
-import { auswertung, ERGEBNISSE, unterschriftFelder, UNTERSCHRIFT_STANDARD } from '../core/model.js';
+import { FARBE, feldRaster, th, ankreuzen, schreiblinie, leer } from '../sektionen/pdfhelfer.js';
+import { auswertung, ERGEBNISSE, unterschriftFelder, UNTERSCHRIFT_STANDARD, neuesProtokoll, planAktualisieren } from '../core/model.js';
 import { eckdaten } from './bericht.js';
 
 const BREITE = 515; // A4 (595 pt) minus 2 × 40 pt Rand
@@ -59,7 +59,8 @@ function fotoRaster(fotos) {
   return { stack: zeilen };
 }
 
-function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
+// blanko: leeres Formular zum Ausfüllen von Hand / im PDF-Viewer (keine Werte, Ankreuzfelder und Schreiblinien)
+function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD, { blanko = false } = {}) {
   const s = p.anlage?.stammdaten || {};
   const a = auswertung(p);
   const erg = ERGEBNISSE[p.ergebnis];
@@ -84,11 +85,23 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
     stack: [
       { text: `WARTUNGSPROTOKOLL${p.anlage?.vorlageName ? ` · ${p.anlage.vorlageName.toUpperCase()}` : ''}`, fontSize: 7, bold: true, color: FARBE.accent, characterSpacing: 1 },
       { text: s.bezeichnung || s.kommission || 'Anlage', fontSize: 17, bold: true, margin: [0, 2, 0, 1] },
-      { text: `${s.kommission || ''}   ${formatDatum(p.datum)}`, bold: true, fontSize: 9 },
+      { text: blanko ? `${s.kommission || ''}   Datum: ____________` : `${s.kommission || ''}   ${formatDatum(p.datum)}`, bold: true, fontSize: 9 },
     ],
   };
 
-  const ergebnisBox = {
+  const ergebnisBox = blanko ? {
+    width: 160,
+    table: { widths: ['*'], body: [[{ stack: [
+      { text: 'ERGEBNIS', style: 'label', margin: [0, 0, 0, 3] },
+      ...Object.values(ERGEBNISSE).map(e => ({ ...ankreuzen([e.label]), margin: [0, 0, 0, 3] })),
+      { text: 'NÄCHSTE PRÜFUNG (MONAT/JAHR)', style: 'label', margin: [0, 4, 0, 0] },
+      schreiblinie(),
+    ] }]] },
+    layout: {
+      hLineWidth: () => 1, vLineWidth: (i) => (i === 0 ? 3 : 1), hLineColor: () => FARBE.soft, vLineColor: () => FARBE.soft,
+      paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6,
+    },
+  } : {
     width: 150,
     table: { widths: ['*'], body: [[{ stack: [
       { text: 'ERGEBNIS', style: 'label' },
@@ -103,7 +116,13 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
     },
   };
 
-  const meta = {
+  const meta = blanko ? {
+    table: { widths: ['*', '*', '*'], body: [
+      ['Datum', 'Techniker', 'Auftrags-/Projektnummer'].map(l => ({ stack: [{ text: l.toUpperCase(), style: 'label' }, schreiblinie('', 16)] })),
+    ] },
+    layout: { fillColor: () => FARBE.sunken, hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6 },
+    margin: [0, 10, 0, 0],
+  } : {
     table: { widths: ['*', '*', '*', '*'], body: [[
       ...[['Datum', formatDatum(p.datum)], ['Techniker', p.meta.techniker || '–'],
         ['Auftrag', p.meta.auftrag || '–'], ['Status', p.status === 'abgeschlossen' ? 'abgeschlossen' : 'Entwurf']]
@@ -115,7 +134,7 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
 
   const sektionen = p.plan.flatMap(sek => [
     sektionTitel(++nr, sek.titel),
-    modul(sek.typ).pdf(sek, p.werte[sek.id] ?? {}),
+    blanko ? modul(sek.typ).blanko(sek) : modul(sek.typ).pdf(sek, p.werte[sek.id] ?? {}),
   ]);
 
   const maengelZeilen = a.maengel.flatMap((m, i) => {
@@ -129,7 +148,12 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
     const fotos = m.fotos?.length ? [[{ text: '' }, { ...fotoRaster(m.fotos), colSpan: 3 }, {}, {}]] : [];
     return [zeile, ...fotos];
   });
-  const maengel = a.maengel.length
+  const maengel = blanko ? {
+    table: { widths: [18, '*', 70, 50], headerRows: 1, dontBreakRows: true,
+      body: [[th('Nr.'), th('Beschreibung'), th('Priorität'), th('Behoben')],
+        ...Array.from({ length: 6 }, (_, i) => [{ text: String(i + 1), margin: [0, 4, 0, 4] }, leer(14), leer(14), ankreuzen([''])])] },
+    layout: 'raster' }
+    : a.maengel.length
     ? { table: { widths: [18, '*', 50, 50], headerRows: 1, dontBreakRows: true,
       body: [[th('Nr.'), th('Beschreibung'), th('Priorität'), th('Status')], ...maengelZeilen] }, layout: 'raster' }
     : { text: 'Keine Mängel festgestellt.', color: FARBE.faint };
@@ -153,13 +177,13 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
     columnGap: 30,
   }] : [];
 
-  const fuss = `${s.kommission || ''} · Wartungsprotokoll vom ${formatDatum(p.datum)}`;
+  const fuss = blanko ? `${s.kommission || ''} · Wartungsprotokoll (Blanko)` : `${s.kommission || ''} · Wartungsprotokoll vom ${formatDatum(p.datum)}`;
 
   return {
     pageSize: 'A4',
     pageMargins: [40, 40, 40, 46],
     info: { title: `Wartungsprotokoll ${s.kommission || ''} ${formatDatum(p.datum)}`, author: firma.name || '', subject: s.bezeichnung || '' },
-    watermark: p.status !== 'abgeschlossen' ? { text: 'ENTWURF', color: FARBE.accent, opacity: 0.08, bold: true } : undefined,
+    watermark: !blanko && p.status !== 'abgeschlossen' ? { text: 'ENTWURF', color: FARBE.accent, opacity: 0.08, bold: true } : undefined,
     defaultStyle: { font: 'Roboto', fontSize: 8.5, lineHeight: 1.15, color: FARBE.ink },
     styles: {
       h2: { fontSize: 10.5, bold: true, characterSpacing: 0.3 },
@@ -187,18 +211,31 @@ function dokument(p, firma = {}, usStandard = UNTERSCHRIFT_STANDARD) {
       { ...linie(FARBE.ink, 1.5), margin: [0, 8, 0, 10] },
       { columns: [{ width: '*', ...feldRaster(eckdaten(p)) }, ergebnisBox], columnGap: 16 },
       meta,
+      ...(blanko ? [{ text: 'Zutreffendes ankreuzen · i.O. = in Ordnung · n.g. = nicht geprüft / nicht vorhanden', style: 'klein', margin: [0, 6, 0, 0] }] : []),
       ...sektionen,
       sektionTitel(++nr, 'Mängel'),
       maengel,
-      ...(p.bemerkung ? [sektionTitel(++nr, 'Bemerkungen'), { text: p.bemerkung }] : []),
+      ...(blanko ? [sektionTitel(++nr, 'Bemerkungen'), { stack: Array.from({ length: 5 }, () => schreiblinie('', 20)) }]
+        : p.bemerkung ? [sektionTitel(++nr, 'Bemerkungen'), { text: p.bemerkung }] : []),
       ...unterschriften,
     ],
   };
 }
 
+/** Leeres Protokoll einer Anlage (aktueller Prüfplan) zum Ausfüllen ohne App */
+export async function blankoPdf(anlage, firma, usStandard) {
+  const p = neuesProtokoll(anlage);
+  planAktualisieren(p, anlage);
+  return erzeuge(dokument(p, firma, usStandard, { blanko: true }));
+}
+
 export async function berichtPdf(p, firma, usStandard) {
+  return erzeuge(dokument(p, firma, usStandard));
+}
+
+async function erzeuge(definition) {
   const pdfMake = await ladePdfMake();
-  const doc = pdfMake.createPdf(dokument(p, firma, usStandard));
+  const doc = pdfMake.createPdf(definition);
   return new Promise((resolve, reject) => {
     try { doc.getBlob(resolve); } catch (e) { reject(e); }
   });

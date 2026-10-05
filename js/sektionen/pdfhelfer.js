@@ -47,3 +47,40 @@ export function tabelle(widths, kopf, zeilen, { raster = false } = {}) {
     layout: raster ? 'raster' : 'linien',
   };
 }
+
+// ── Blanko-Protokoll (zum Ausfüllen von Hand oder im PDF-Viewer) ──
+
+const kaestchen = () => ({
+  canvas: [{ type: 'rect', x: 0, y: 1.5, w: 7.5, h: 7.5, lineWidth: 0.7, lineColor: FARBE.soft }], width: 10,
+});
+
+/** Ankreuzfelder nebeneinander, z. B. ['i.O.', 'Mangel', 'n.g.'] */
+export const ankreuzen = (labels) => {
+  const option = (l) => [kaestchen(), { text: l, width: 'auto', noWrap: true, margin: [0, 0, 8, 0] }];
+  // Viele oder lange Optionen untereinander, sonst werden sie in schmalen Spalten gequetscht
+  if (labels.join('').length > 28) {
+    return { stack: labels.map(l => ({ columns: option(l), columnGap: 0, margin: [0, 0, 0, 2] })) };
+  }
+  return { columns: labels.flatMap(option), columnGap: 0 };
+};
+
+/** Leere Schreiblinie, optional mit Einheit am Ende */
+export const schreiblinie = (einheit = '', hoehe = 14) => ({
+  table: { widths: ['*', 'auto'], body: [[{ text: '', margin: [0, hoehe - 10, 0, 0] }, { text: einheit, style: 'klein' }]] },
+  layout: {
+    hLineWidth: (i) => (i === 1 ? 0.6 : 0), vLineWidth: () => 0, hLineColor: () => FARBE.soft,
+    paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 1,
+  },
+});
+
+/** Leere Tabellenzelle mit Platz zum Schreiben */
+export const leer = (hoehe = 16) => ({ text: '', margin: [0, hoehe / 2, 0, hoehe / 2] });
+
+/** Blanko-Wert je Feldtyp (felder-Modul, Stammdatenfelder) */
+export function blankoFeld(f) {
+  if (f.typ === 'janein') return ankreuzen(['Ja', 'Nein']);
+  if (f.typ === 'auswahl' && f.optionen?.length) return ankreuzen(f.optionen);
+  if (f.typ === 'textlang') return { stack: [schreiblinie(), schreiblinie(), schreiblinie()] };
+  if (f.typ === 'datum') return schreiblinie('', 14);
+  return schreiblinie(f.einheit || '');
+}

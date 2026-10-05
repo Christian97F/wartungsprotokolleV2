@@ -147,6 +147,7 @@ export async function render(el, params, query) {
           if (geaendert && !await speichern()) return;
           navigiere(`/protokoll/neu?anlage=${encodeURIComponent(anlage.id)}`);
         } },
+        { label: 'Blanko-Protokoll (PDF)', icon: 'pdf', aktion: async () => (await import('./bericht.js')).blankoErstellen(anlage) },
         { label: 'Vorlage wechseln …', icon: 'vorlage', aktion: vorlageWechseln },
         { label: 'Als Vorlage speichern', icon: 'vorlage', aktion: async () => {
           const name = await eingabe('Als Vorlage speichern', { label: 'Name der Vorlage', wert: anlagenTitel(anlage.stammdaten) });

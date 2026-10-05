@@ -1,11 +1,11 @@
 import { DB } from '../core/db.js';
-import { formatDatum, esc } from '../core/util.js';
+import { formatDatum, esc, dateiname } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { toast, dialog } from '../core/ui.js';
 import { setzeKopf } from '../core/shell.js';
 import { anlagenTitel, UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import { berichtHtml } from '../io/bericht.js';
-import { berichtPdf } from '../io/pdf.js';
+import { berichtPdf, blankoPdf } from '../io/pdf.js';
 import { protokollDateiname, herunterladen, kannTeilen } from '../io/austausch.js';
 
 // Teilen erfordert einen frischen Tipp. Dauert die Erzeugung zu lange (v. a. Safari),
@@ -52,6 +52,20 @@ async function altExport(id, teilen) {
     toast(`Exportiert: ${await exportAltProtokoll(id, { teilen })}`, 'success');
   } catch (e) {
     toast(`Export fehlgeschlagen: ${e.message}`, 'error');
+  }
+}
+
+/** Leeres Protokoll der Anlage als PDF (für Techniker ohne App) */
+export async function blankoErstellen(anlage) {
+  toast('Blanko-Protokoll wird erstellt …', 'info', 1500);
+  try {
+    const [firma, usStandard] = await Promise.all([
+      DB.einstellung('firma', {}), DB.einstellung('unterschriftFelder', UNTERSCHRIFT_STANDARD)]);
+    const blob = await blankoPdf(anlage, firma, usStandard);
+    await pdfAusgeben(blob, `${dateiname('Blanko-Protokoll', anlage.stammdaten.kommission, anlage.stammdaten.bezeichnung)}.pdf`, kannTeilen());
+  } catch (e) {
+    console.error(e);
+    toast(`PDF konnte nicht erstellt werden: ${e.message}`, 'error', 6000);
   }
 }
 

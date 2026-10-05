@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, statusSchalter, checkbox, listenEditor, wertText, statusZelle } from './helfer.js';
-import { pdfWert, pdfStatus, th, untertitel, feldRaster, tabelle } from './pdfhelfer.js';
+import { pdfWert, pdfStatus, th, untertitel, feldRaster, tabelle, ankreuzen, schreiblinie, leer } from './pdfhelfer.js';
 
 const MESSUNGEN = [
   { id: 'leerlauf', label: 'Leerlaufspannung', einheit: 'V' },
@@ -152,6 +152,29 @@ export default {
     }
     if (sek.lader.length) {
       teile.push({ ...feldRaster(sek.lader.map(l => [`${l.name || 'Ladegerät'} – Ladespannung`, pdfWert(werte.lader[l.id], 'V')])), margin: [0, 6, 0, 0] });
+    }
+    return { stack: teile };
+  },
+
+  blanko(sek) {
+    const teile = [];
+    for (const g of sek.gruppen) {
+      const mess = messungenFuer(g);
+      teile.push(untertitel(g.name, gruppeBeschreibung(g)));
+      teile.push(tabelle(
+        [22, ...mess.map(() => '*'), 92, ...(g.wartungsfrei ? [] : [50])],
+        [th('Nr.'), ...mess.map(m => th(`${m.label} [${m.einheit}]`, 'right')), th('Klemmen'), ...(g.wartungsfrei ? [] : [th('Dest. Wasser')])],
+        Array.from({ length: Number(g.anzahl) || 0 }, (_, i) => [
+          { text: String(i + 1), margin: [0, 3, 0, 3] },
+          ...mess.map(() => leer(12)),
+          ankreuzen(['i.O.', 'Mangel']),
+          ...(g.wartungsfrei ? [] : [ankreuzen(['ja'])]),
+        ]),
+        { raster: true },
+      ));
+    }
+    if (sek.lader.length) {
+      teile.push({ ...feldRaster(sek.lader.map(l => [`${l.name || 'Ladegerät'} – Ladespannung`, schreiblinie('V')]), 2), margin: [0, 6, 0, 0] });
     }
     return { stack: teile };
   },

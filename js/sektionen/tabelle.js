@@ -1,6 +1,6 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { eingabe, listenEditor, wertText } from './helfer.js';
-import { FARBE, pdfWert, th, tabelle } from './pdfhelfer.js';
+import { FARBE, pdfWert, th, tabelle, leer } from './pdfhelfer.js';
 
 export default {
   typ: 'tabelle',
@@ -75,6 +75,16 @@ export default {
     sek.zeilen.map(z => [
       { text: z.label, color: FARBE.soft },
       ...sek.spalten.map(s => ({ ...pdfWert(werte[z.id]?.[s.id], z.einheit), alignment: 'right' })),
+    ]),
+    { raster: true },
+  ),
+
+  blanko: (sek) => tabelle(
+    ['*', ...sek.spalten.map(() => 90)],
+    [{ text: '' }, ...sek.spalten.map(s => th(s.label, 'right'))],
+    sek.zeilen.map(z => [
+      { text: `${z.label}${z.einheit ? ` [${z.einheit}]` : ''}`, color: FARBE.soft },
+      ...sek.spalten.map(() => leer(14)),
     ]),
     { raster: true },
   ),

@@ -1,7 +1,7 @@
 import { esc, eindeutigeId, istLeer } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { listenEditor, wertText } from './helfer.js';
-import { FARBE, pdfWert, th, tabelle } from './pdfhelfer.js';
+import { FARBE, pdfWert, th, tabelle, leer } from './pdfhelfer.js';
 import { FELD_SPALTEN, feldFormular } from './felder.js';
 
 const leererEintrag = () => ({});
@@ -87,6 +87,20 @@ export default {
       sek.felder.map(f => [
         { text: f.label, color: FARBE.soft },
         ...werte.map(e => ({ ...pdfWert(e[f.id], f.einheit), alignment: 'right' })),
+      ]),
+      { raster: true },
+    );
+  },
+
+  // Felder als Zeilen, Einträge als Spalten – so passen auch viele Messwerte auf die Seite
+  blanko(sek) {
+    const anzahl = Math.max(Number(sek.vorgabeAnzahl) || 0, 3);
+    return tabelle(
+      [120, ...Array(anzahl).fill('*')],
+      [{ text: '' }, ...Array.from({ length: anzahl }, (_, i) => th(`${sek.eintragLabel || 'Eintrag'} ${i + 1}`, 'right'))],
+      sek.felder.map(f => [
+        { text: `${f.label}${f.einheit ? ` [${f.einheit}]` : ''}`, color: FARBE.soft },
+        ...Array.from({ length: anzahl }, () => leer(12)),
       ]),
       { raster: true },
     );

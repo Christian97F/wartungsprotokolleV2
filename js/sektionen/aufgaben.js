@@ -1,6 +1,6 @@
 import { esc, eindeutigeId } from '../core/util.js';
 import { listenEditor } from './helfer.js';
-import { FARBE, untertitel } from './pdfhelfer.js';
+import { FARBE, untertitel, ankreuzen, tabelle, th } from './pdfhelfer.js';
 
 export default {
   typ: 'aufgaben',
@@ -59,4 +59,11 @@ export default {
       { stack: [untertitel('Geplant für nächste Wartung'), liste('geplant')] },
     ], columnGap: 20 };
   },
+
+  blanko: (sek) => tabelle(
+    ['*', 70, 110],
+    [{ text: '' }, th('Durchgeführt'), th('Nächste Wartung')],
+    sek.elemente.map(e => [{ text: e.label }, ankreuzen(['']), ankreuzen([''])]),
+    { raster: true },
+  ),
 };
