@@ -234,10 +234,44 @@ def techniker(name) -> list[str]:
 class Bestand:
     aggregate: set[str] = field(default_factory=set)
     technik: set[str] = field(default_factory=set)
-    kunden: dict[str, str] = field(default_factory=dict)   # Name (klein) → Kunden-Nr
+    kunden: dict[str, str] = field(default_factory=dict)   # normierter Name → Kunden-Nr
+    kunden_original: dict[str, str] = field(default_factory=dict)
     mitarbeiter: set[str] = field(default_factory=set)
     termine: set[tuple[str, str]] = field(default_factory=set)  # (TT.MM.JJJJ, Kommission)
     reihenfolge: dict[str, list[str]] = field(default_factory=dict)  # Tabelle → Eingabespalten in Excel-Reihenfolge
+    zuordnungen: dict[str, str] = field(default_factory=dict)  # Meldungen über abweichende Schreibweisen
+
+    def kommission(self, roh) -> str:
+        """Kommission so, wie sie in Excel steht.
+
+        Altdaten haben Kommissionen teils als Zahl gespeichert, dabei gingen Endnullen verloren
+        (23.050 → 23.05). Ist die Kommission in Excel unbekannt, wird sie über den Zahlenwert zugeordnet.
+        """
+        k = str(roh if roh is not None else '').strip()
+        if not k or k in self.aggregate or not re.fullmatch(r'\d+(\.\d+)?', k):
+            return k
+        treffer = [e for e in self.aggregate if re.fullmatch(r'\d+(\.\d+)?', e) and float(e) == float(k)]
+        if len(treffer) == 1:
+            self.zuordnungen[k] = (f'Kommission „{k}“ der App als „{treffer[0]}“ aus Excel zugeordnet '
+                                   f'(Endnullen fehlen in der App – dort korrigieren).')
+            return treffer[0]
+        return k
+
+    def kunde(self, name) -> tuple[str, str] | None:
+        """(Kunden-Nr, Name in Excel); bei kleinen Abweichungen (z. B. „-rn“ aus verschluckten Zeilenumbrüchen) die ähnlichste."""
+        import difflib
+        n = norm_name(name)
+        if not n:
+            return None
+        if n in self.kunden:
+            return self.kunden[n], self.kunden_original[n]
+        bewertet = sorted(((difflib.SequenceMatcher(None, n, k).ratio(), k) for k in self.kunden), reverse=True)
+        if bewertet and bewertet[0][0] >= 0.9 and (len(bewertet) == 1 or bewertet[1][0] < bewertet[0][0] - 0.05):
+            k = bewertet[0][1]
+            self.zuordnungen[n] = (f'Kunde „{str(name).strip()}“ der App als „{self.kunden_original[k]}“ '
+                                   f'[{self.kunden[k]}] zugeordnet – bitte prüfen.')
+            return self.kunden[k], self.kunden_original[k]
+        return None
 
 
 # Eingabespalten laut PWA_Importformat.md, Abschnitt 6. Geschrieben wird in der Reihenfolge der Excel-Mappe.
@@ -264,6 +298,10 @@ EINGABEBLOECKE = {
     'tblKunden': ('Kunden', ['Kunden-Nr', 'Name']),
     'tblMitarbeiter': ('Mitarbeiter', ['Name']),
 }
+
+
+def norm_name(t) -> str:
+    return ' '.join(str(t or '').split()).casefold()
 
 
 def norm_kopf(t) -> str:
@@ -352,7 +390,8 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
     for z in tabellen['tblKunden']:
         if z.get('Kunden-Nr') not in (None, '') and z.get('Name'):
             try:
-                b.kunden[str(z['Name']).strip().lower()] = str(round(float(z['Kunden-Nr'])))
+                b.kunden[norm_name(z['Name'])] = str(round(float(z['Kunden-Nr'])))
+                b.kunden_original[norm_name(z['Name'])] = str(z['Name']).strip()
             except (TypeError, ValueError):
                 print(f'Achtung: Kunden-Nr „{z["Kunden-Nr"]}“ bei „{z["Name"]}“ ist keine Zahl – ignoriert.')
     for z in tabellen['tblTermine']:
@@ -366,9 +405,9 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
 
 # ── Zeilen je Blatt ─────────────────────────────────────────
 
-def termin_zeile(p, anlage, hinweis: Bericht) -> tuple[list[str], str] | None:
+def termin_zeile(p, anlage, bestand: Bestand, hinweis: Bericht) -> tuple[list[str], str] | None:
     s = (anlage or {}).get('stammdaten') or (p.get('anlage') or {}).get('stammdaten') or {}
-    kommission = str(s.get('kommission') or '').strip()
+    kommission = bestand.kommission(s.get('kommission'))
     if not kommission:
         hinweis(f"Protokoll vom {datum(p.get('datum'))} ohne Kommission – übersprungen.")
         return None
@@ -391,10 +430,10 @@ def termin_zeile(p, anlage, hinweis: Bericht) -> tuple[list[str], str] | None:
     return zeile, kommission
 
 
-def aggregat_zeile(a, kunden_nr) -> list[str]:
+def aggregat_zeile(a, kommission, kunde: tuple[str, str]) -> list[str]:
     s, z, v = a.get('stammdaten') or {}, a.get('zusatz') or {}, a.get('vertrag') or {}
     zeile = [
-        text(s.get('kommission')), text(s.get('bezeichnung')), ref_kunde(s.get('kunde'), kunden_nr),
+        text(kommission), text(s.get('bezeichnung')), ref_kunde(kunde[1], kunde[0]),
         text(s.get('standort')), '', '', '',
         text(s.get('hersteller')), text(s.get('typ')), text(s.get('seriennr')),
         ganzzahl(z.get('Leistung_kVA')), text(z.get('Motor_Typ')), text(z.get('Motor_NR')),
@@ -408,7 +447,7 @@ def aggregat_zeile(a, kunden_nr) -> list[str]:
     return zeile
 
 
-def technik_zeile(a) -> list[str] | None:
+def technik_zeile(a, kommission) -> list[str] | None:
     s, z = a.get('stammdaten') or {}, a.get('zusatz') or {}
     bat = next(iter(sektionen(a.get('pruefplan'), 'batterien')), {})
     gruppen = {g.get('id'): g for g in bat.get('gruppen', [])}
@@ -423,7 +462,7 @@ def technik_zeile(a) -> list[str] | None:
                 ganzzahl(g.get('spannung')), ganzzahl(g.get('kapazitaet')), ja_nein(bool(g.get('wartungsfrei')))]
 
     zeile = [
-        ref_aggregat(s.get('bezeichnung'), str(s.get('kommission') or '').strip()),
+        ref_aggregat(s.get('bezeichnung'), kommission),
         *[text(z.get(k)) for k in ('Generator_Hersteller', 'Generator_Typ', 'Generator_Serien_NR', 'Generator_Regler_Typ',
                                    'Motorregler_Hersteller', 'Motorregler_Typ', 'NSA_Hersteller', 'NSA_Typ', 'NSA_Serien_NR')],
         text(lader[0]), '', text(lader[1]), '',
@@ -489,18 +528,18 @@ def main():
     aggregate, technik, neue_kommissionen = [], [], set()
     for a in sorted(anlagen.values(), key=lambda a: str(a.get('stammdaten', {}).get('kommission') or '')):
         s = a.get('stammdaten') or {}
-        kommission = str(s.get('kommission') or '').strip()
+        kommission = bestand.kommission(s.get('kommission'))
         if not kommission:
             continue
         if kommission not in bestand.aggregate:
-            nr = bestand.kunden.get(str(s.get('kunde') or '').strip().lower())
-            if not nr:
+            kunde = bestand.kunde(s.get('kunde'))
+            if not kunde:
                 hinweis(f'Aggregat {kommission}: Kunde „{s.get("kunde") or "(leer)"}“ nicht im Blatt „Kunden“ – '
                         f'nicht exportiert. Kunde in Excel anlegen (Name genau wie in der App) und Programm erneut starten.')
                 continue
-            aggregate.append(aggregat_zeile(a, nr))
+            aggregate.append(aggregat_zeile(a, kommission, kunde))
             neue_kommissionen.add(kommission)
-        if kommission not in bestand.technik and (zeile := technik_zeile(a)):
+        if kommission not in bestand.technik and (zeile := technik_zeile(a, kommission)):
             technik.append(zeile)
 
     # Termine
@@ -510,7 +549,7 @@ def main():
         if p.get('status') != 'abgeschlossen':
             entwuerfe += 1
             continue
-        ergebnis = termin_zeile(p, anlagen.get(p.get('anlageId')), hinweis)
+        ergebnis = termin_zeile(p, anlagen.get(p.get('anlageId')), bestand, hinweis)
         if not ergebnis:
             continue
         zeile, kommission = ergebnis
@@ -544,6 +583,8 @@ def main():
                         for i, (b, p, n, erste) in enumerate(dateien, 1)),
     ), encoding='utf-8-sig', newline='\r\n')
 
+    for meldung in bestand.zuordnungen.values():
+        hinweis(meldung)
     hersteller = sorted({z[7] for z in aggregate if z[7]})
     if hersteller:
         hinweis(f'Hersteller müssen im Blatt „Listen“ unter „Aggregathersteller“ stehen (sonst dort ergänzen): '
