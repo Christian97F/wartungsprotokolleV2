@@ -257,6 +257,12 @@ class Bestand:
             return treffer[0]
         return k
 
+    def aehnliche_kommissionen(self, kommission: str) -> list[str]:
+        import difflib
+        k = kommission.casefold()
+        teil = [e for e in self.aggregate if k and (e.casefold().startswith(k) or k.startswith(e.casefold()))]
+        return list(dict.fromkeys(sorted(teil)[:3] + difflib.get_close_matches(kommission, self.aggregate, n=3, cutoff=0.8)))[:4]
+
     def kunde(self, name) -> tuple[str, str] | None:
         """(Kunden-Nr, Name in Excel); bei kleinen Abweichungen (z. B. „-rn“ aus verschluckten Zeilenumbrüchen) die ähnlichste."""
         import difflib
@@ -534,8 +540,13 @@ def main():
         if kommission not in bestand.aggregate:
             kunde = bestand.kunde(s.get('kunde'))
             if not kunde:
-                hinweis(f'Aggregat {kommission}: Kunde „{s.get("kunde") or "(leer)"}“ nicht im Blatt „Kunden“ – '
-                        f'nicht exportiert. Kunde in Excel anlegen (Name genau wie in der App) und Programm erneut starten.')
+                aehnlich = bestand.aehnliche_kommissionen(kommission)
+                grund = (f'Kunde „{s["kunde"].strip()}“ fehlt im Blatt „Kunden“ (dort anlegen, Name wie in der App)'
+                         if str(s.get('kunde') or '').strip() else 'in der App ist kein Kunde eingetragen')
+                hinweis(f'Aggregat {kommission} („{s.get("bezeichnung") or "ohne Bezeichnung"}“) ist neu für Excel, '
+                        f'aber {grund} – nicht exportiert.'
+                        + (f' Ähnliche Kommissionen in Excel: {", ".join(aehnlich)} – falls es dieselbe Anlage ist, '
+                           f'die Kommission in der App angleichen.' if aehnlich else ''))
                 continue
             aggregate.append(aggregat_zeile(a, kommission, kunde))
             neue_kommissionen.add(kommission)
