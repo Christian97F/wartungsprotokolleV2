@@ -94,6 +94,15 @@
   background: var(--accent);
 }
 
+/* Mobil / iPad hochkant: nur der Inhaltsbereich scrollt, nicht das Dokument.
+   Sonst verschiebt iOS die feste untere Navigation beim Nachfedern und beim Ein-/Ausblenden der Leisten. */
+@media (max-width: 899px) {
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { min-height: 0; }
+  #app { height: 100%; min-height: 0; }
+  .hauptbereich { height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+}
+
 /* Auf Unterseiten (Formulare) Platz sparen: Kopftitel kleiner */
 @media (max-width: 599px) {
   .kopf { gap: var(--s-2); padding-left: var(--s-3); padding-right: var(--s-3); }

@@ -1,7 +1,8 @@
 /* Beim Drucken nur den Bericht ausgeben */
 html, body { background: #fff !important; }
 .seitenleiste, .kopf, .unten-nav, .bericht-werkzeug, #toast-host, .drop-hinweis, .popmenue { display: none !important; }
-.hauptbereich { margin: 0 !important; padding: 0 !important; }
+.hauptbereich { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
+html, body, #app { height: auto !important; overflow: visible !important; }
 .inhalt { padding: 0 !important; max-width: none !important; }
 .papier-rahmen { overflow: visible !important; padding: 0 !important; }
 

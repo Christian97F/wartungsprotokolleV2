@@ -61,6 +61,7 @@ async function aufloesen() {
   bereich.className = 'screen';
   wurzel.replaceChildren(bereich);
   window.scrollTo(0, 0);
+  document.querySelector('.hauptbereich')?.scrollTo(0, 0); // Mobil scrollt nur dieser Bereich
   document.dispatchEvent(new CustomEvent('routenwechsel', { detail: { muster: treffer.r.muster, pfad } }));
   const eintrag = { screen, cleanup: null };
   aktiv = eintrag;
