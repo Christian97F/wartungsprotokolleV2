@@ -234,6 +234,8 @@ def techniker(name) -> list[str]:
 class Bestand:
     aggregate: set[str] = field(default_factory=set)
     technik: set[str] = field(default_factory=set)
+    technik_zeilen: list[dict] = field(default_factory=list)  # Zeilen von tblTechnik in Excel-Reihenfolge
+    technik_start: int = 2  # Excel-Zeilennummer der ersten Datenzeile von tblTechnik
     kunden: dict[str, str] = field(default_factory=dict)   # normierter Name → Kunden-Nr
     kunden_original: dict[str, str] = field(default_factory=dict)
     mitarbeiter: set[str] = field(default_factory=set)
@@ -352,13 +354,14 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
     except Exception as e:  # beschädigt, falsches Format, in Excel gesperrt …
         sys.exit(f'Excel-Mappe „{pfad.name}“ kann nicht gelesen werden: {e}')
 
-    tabellen, koepfe, fundorte = {}, {}, {}
+    tabellen, koepfe, fundorte, startzeilen = {}, {}, {}, {}
     for ws in wb.worksheets:
         for tbl in ws.tables.values():
             zeilen = list(ws[tbl.ref])
             kopf = [norm_kopf(z.value) for z in zeilen[0]]
             koepfe[tbl.displayName] = kopf
             fundorte[tbl.displayName] = f'Blatt „{ws.title}“, Bereich {tbl.ref}'
+            startzeilen[tbl.displayName] = zeilen[0][0].row + 1
             tabellen[tbl.displayName] = [dict(zip(kopf, (z.value for z in zeile))) for zeile in zeilen[1:]]
 
     fehler = []
@@ -392,6 +395,8 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
         b.reihenfolge[tabelle] = [k for k in koepfe[tabelle] if k in soll]
     b.aggregate = {str(k).strip() for k in spalte('tblAggregate', 'Kommission')}
     b.technik = {schluessel_aus_ref(a) for a in spalte('tblTechnik', 'Aggregat')}
+    b.technik_zeilen = tabellen['tblTechnik']
+    b.technik_start = startzeilen['tblTechnik']
     b.mitarbeiter = {str(n).strip() for n in spalte('tblMitarbeiter', 'Name')}
     for z in tabellen['tblKunden']:
         if z.get('Kunden-Nr') not in (None, '') and z.get('Name'):
@@ -451,6 +456,51 @@ def aggregat_zeile(a, kommission, kunde: tuple[str, str]) -> list[str]:
     ]
     assert len(zeile) == 29
     return zeile
+
+
+def excel_wert(v) -> str:
+    """Zellwert aus der Mappe im Format der Importdateien (zum Zurückschreiben unveränderter Werte)."""
+    if v is None:
+        return ''
+    if isinstance(v, bool):
+        return 'Ja' if v else 'Nein'
+    if isinstance(v, (datetime, date)):
+        return v.strftime('%d.%m.%Y')
+    if isinstance(v, (int, float)):
+        return dezimal(v)
+    return text(v)
+
+
+# Felder (Index in technik_zeile), die ohne Hersteller/Typ/Kapazität nur Vorgabewerte der Vorlage sind
+BATTERIE_VORGABE = {16: (14, 15, 18), 17: (14, 15, 18), 19: (14, 15, 18),
+                    22: (20, 21, 24), 23: (20, 21, 24), 25: (20, 21, 24)}
+
+
+def technik_ersetzen(bestand: 'Bestand', app_zeilen: dict[str, list[str]]):
+    """Kompletter Eingabeblock von „Technische Daten“ mit Werten aus der App.
+
+    Excel kann bestehende Zeilen beim Einfügen nicht aktualisieren. Deshalb werden alle vorhandenen
+    Zeilen in unveränderter Reihenfolge ausgegeben und über den alten Block eingefügt. Leere Werte der App
+    überschreiben nichts. Liefert (Zeilen in Excel-Spaltenfolge, Änderungen) oder (None, []) ohne Änderung.
+    """
+    soll = EINGABEBLOECKE['tblTechnik'][1]
+    folge = bestand.reihenfolge['tblTechnik']
+    zeilen, aenderungen = [], []
+    for nr, excel in enumerate(bestand.technik_zeilen, bestand.technik_start):
+        alt = [excel_wert(excel.get(sp)) for sp in soll]
+        neu = list(alt)
+        kommission = schluessel_aus_ref(excel.get('Aggregat'))
+        app = app_zeilen.get(kommission)
+        if app:
+            for i in range(1, len(soll)):
+                if not app[i] or app[i] == alt[i]:
+                    continue
+                if i in BATTERIE_VORGABE and not any(app[j] for j in BATTERIE_VORGABE[i]):
+                    continue
+                neu[i] = app[i]
+                aenderungen.append([str(nr), kommission, soll[i], alt[i], app[i]])
+        zeilen.append([neu[soll.index(sp)] for sp in folge])
+    return (zeilen if aenderungen else None), aenderungen
 
 
 def technik_zeile(a, kommission) -> list[str] | None:
@@ -536,6 +586,27 @@ So wird eine Datei eingefügt:
   6. Kurz prüfen: stehen die Werte in den richtigen Spalten? Wenn nicht: Strg+Z und Schritt 4 prüfen.
 
 Jede Datei nur EIN Mal einfügen – Excel erkennt keine doppelten Zeilen.
+{ersetzen}"""
+
+ERSETZEN = """
+
+TECHNISCHE DATEN ERSETZEN (vorhandene Zeilen aktualisieren)
+===========================================================
+
+„{datei}“ enthält ALLE {zeilen} vorhandenen Zeilen des Blatts „Technische Daten“ in der
+bisherigen Reihenfolge – mit {anzahl} geänderten Werten bei {aggregate} Aggregaten aus der App
+(Liste zum Prüfen: „Aenderungen_Technische_Daten_….xlsx“). Diese Datei wird NICHT unter die Tabelle,
+sondern ÜBER die vorhandenen Zeilen eingefügt:
+
+  1. Vorher die Excel-Mappe sichern (Kopie anlegen).
+  2. Im Blatt „Technische Daten“ alle Filter aufheben und NICHT sortieren – die Zeilen müssen
+     genau so stehen wie beim Programmlauf. Zeile {erste_zeile}: „{erster}“ … Zeile {letzte_zeile}: „{letzter}“.
+  3. Datei im Editor öffnen, Strg+A, Strg+C.
+  4. In Excel in Zeile {erste_zeile} (erste Datenzeile) in die Spalte „{spalte}“ klicken und Strg+V.
+  5. Prüfen: In Spalte „{spalte}“ steht in jeder Zeile noch dasselbe Aggregat wie vorher.
+     Wenn nicht: sofort Strg+Z.
+
+Erst danach die übrigen Dateien einfügen (Technische Daten neuer Aggregate kommen dann unten dazu).
 """
 
 
@@ -563,6 +634,7 @@ def main():
     aggregate, technik, neue_kommissionen = [], [], set()
     offen = {'tblAggregate': [], 'tblTechnik': [], 'tblTermine': []}
     offen_kommissionen: dict[str, str] = {}
+    technik_app: dict[str, list[str]] = {}
     for a in sorted(anlagen.values(), key=lambda a: str(a.get('stammdaten', {}).get('kommission') or '')):
         s = a.get('stammdaten') or {}
         kommission = bestand.kommission(s.get('kommission'))
@@ -585,8 +657,11 @@ def main():
                 continue
             aggregate.append(aggregat_zeile(a, kommission, kunde))
             neue_kommissionen.add(kommission)
-        if kommission not in bestand.technik and (zeile := technik_zeile(a, kommission)):
-            technik.append(zeile)
+        if zeile := technik_zeile(a, kommission):
+            if kommission in bestand.technik:
+                technik_app[kommission] = zeile
+            else:
+                technik.append(zeile)
 
     # Termine
     termine, entwuerfe, doppelt, gesehen = [], 0, 0, set()
@@ -624,6 +699,24 @@ def main():
         if pfad:
             dateien.append((blatt, pfad, len(zeilen), excel_folge[0]))
 
+    ersatz, aenderungen = technik_ersetzen(bestand, technik_app)
+    if ersatz:
+        pfad = schreibe(ordner, f'Ersetzen_Technische_Daten_{heute}.txt', ersatz)
+        schreibe_xlsx(ordner / f'Aenderungen_Technische_Daten_{heute}.xlsx',
+                      [('Änderungen', ['Excel-Zeile', 'Kommission', 'Spalte', 'Bisher in Excel', 'Neu aus der App'], aenderungen)])
+        erste = bestand.reihenfolge['tblTechnik'][0]
+        ersetzen_text = ERSETZEN.format(datei=pfad.name, zeilen=len(ersatz), spalte=erste,
+                                        erster=excel_wert(bestand.technik_zeilen[0].get('Aggregat')),
+                                        letzter=excel_wert(bestand.technik_zeilen[-1].get('Aggregat')),
+                                        erste_zeile=bestand.technik_start,
+                                        letzte_zeile=bestand.technik_start + len(ersatz) - 1, anzahl=len(aenderungen),
+                                        aggregate=len({a[1] for a in aenderungen}))
+        hinweis(f'Technische Daten: {len(aenderungen)} Werte bei {len({a[1] for a in aenderungen})} vorhandenen '
+                f'Aggregaten weichen von der App ab – siehe „Aenderungen_Technische_Daten_{heute}.xlsx“ und Abschnitt '
+                f'„Technische Daten ersetzen“ in der Anleitung.')
+    else:
+        ersetzen_text = ''
+
     if any(offen.values()):
         pfad = ordner / f'Nicht_importiert_{heute}.xlsx'
         blaetter = []
@@ -637,6 +730,7 @@ def main():
                 f'nach Excel – alle Daten stehen in „{pfad.name}“ zum Eintragen von Hand (Spalte „Grund“ erklärt, warum).')
 
     (ordner / 'Anleitung.txt').write_text(ANLEITUNG.format(
+        ersetzen=ersetzen_text,
         dateien=''.join(f'  {i}. {p.name}\n     → Blatt „{b}“, Spalte „{erste}“ ({n} Zeile{"" if n == 1 else "n"})\n'
                         for i, (b, p, n, erste) in enumerate(dateien, 1)),
     ), encoding='utf-8-sig', newline='\r\n')
