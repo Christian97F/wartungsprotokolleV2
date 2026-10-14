@@ -481,3 +481,6 @@ fieldset:disabled .foto-weg, fieldset:disabled .foto-neu { display: none; }
 .notfall-link { display: block; margin: var(--s-4) auto 0; font-size: 13px; color: var(--ink-faint); }
 .dlg-liste { margin: 0 0 var(--s-3); padding-left: 1.2em; color: var(--ink-soft); }
 .dlg-liste li + li { margin-top: 4px; }
+
+/* Prüfpunkte in Anlagen übernehmen */
+.vt-liste { max-height: 30dvh; margin-bottom: var(--s-3); }

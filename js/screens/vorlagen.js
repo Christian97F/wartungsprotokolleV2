@@ -77,6 +77,7 @@ export async function renderListe(el) {
     menue(m, [
       { label: 'Bearbeiten', icon: 'bearbeiten', aktion: () => navigiere(`/vorlage/${v.id}`) },
       { label: 'Duplizieren', icon: 'kopie', aktion: () => duplizieren(v) },
+      { label: 'Prüfpunkte in Anlagen übernehmen …', icon: 'anlage', aktion: async () => (await import('./verteilen.js')).inAnlagenUebernehmen(v) },
       { label: 'Exportieren', icon: 'export', aktion: async () => toast(`Exportiert: ${await exportVorlage(v, { teilen: true })}`, 'success') },
       '-',
       { label: 'Löschen', icon: 'loeschen', gefahr: true, aktion: async () => {
@@ -119,8 +120,20 @@ export async function renderEditor(el, params, query) {
     titel: vorlage.name,
     eyebrow: 'Vorlage bearbeiten',
     zurueckZu: '/vorlagen',
-    aktionen: [{ id: 'speichern', label: 'Speichern', icon: 'check', art: 'primary' }],
-    onAktion: speichern,
+    aktionen: [
+      { id: 'mehr', label: 'Weitere Aktionen', icon: 'mehr', nurIcon: true },
+      { id: 'speichern', label: 'Speichern', icon: 'check', art: 'primary' },
+    ],
+    onAktion: (id, btn) => {
+      if (id === 'speichern') return speichern();
+      menue(btn, [
+        { label: 'Prüfpunkte in Anlagen übernehmen …', icon: 'anlage', aktion: async () => {
+          // Übernommen wird der gespeicherte Stand
+          if (geaendert && !await speichern()) return;
+          (await import('./verteilen.js')).inAnlagenUebernehmen(vorlage);
+        } },
+      ]);
+    },
   });
 
   el.innerHTML = `
