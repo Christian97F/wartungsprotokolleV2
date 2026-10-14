@@ -491,6 +491,35 @@ def schreibe(ordner: Path, name: str, zeilen: list[list[str]]) -> Path | None:
     return pfad
 
 
+def schreibe_xlsx(pfad: Path, blaetter: list[tuple[str, list[str], list[list[str]]]]):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    wb.remove(wb.active)
+    for name, kopf, zeilen in blaetter:
+        ws = wb.create_sheet(name)
+        ws.append(kopf)
+        for zeile in zeilen:
+            ws.append([None] * len(kopf))
+            for spalte, wert in enumerate(zeile, 1):
+                zelle = ws.cell(row=ws.max_row, column=spalte)
+                # Als Text ablegen: führende Nullen bleiben, „=…“ wird keine Formel
+                zelle.value = wert[1:] if wert.startswith("'") else wert
+                zelle.data_type = 's'
+                zelle.number_format = '@'
+        for zelle in ws[1]:
+            zelle.font = Font(bold=True)
+            zelle.fill = PatternFill('solid', fgColor='DDE3EA')
+            zelle.alignment = Alignment(wrap_text=True, vertical='top')
+        for i, k in enumerate(kopf, 1):
+            breite = max([len(k)] + [len(str(z[i - 1])) for z in zeilen])
+            ws.column_dimensions[get_column_letter(i)].width = min(max(breite + 2, 10), 60)
+        ws.freeze_panes = 'B2'
+        ws.auto_filter.ref = ws.dimensions
+    wb.save(pfad)
+
+
 ANLEITUNG = """ÜBERNAHME IN „Wartungsdaten.xlsx“
 ====================================
 
@@ -530,8 +559,10 @@ def main():
     anlagen = {a['id']: a for a in daten.get('anlagen', [])}
     protokolle = sorted(daten.get('protokolle', []), key=lambda p: (p.get('datum') or '', p.get('id')))
 
-    # Aggregate und Technische Daten
+    # Aggregate und Technische Daten. Nicht importierbare Anlagen kommen mit allen Daten in eine eigene Mappe.
     aggregate, technik, neue_kommissionen = [], [], set()
+    offen = {'tblAggregate': [], 'tblTechnik': [], 'tblTermine': []}
+    offen_kommissionen: dict[str, str] = {}
     for a in sorted(anlagen.values(), key=lambda a: str(a.get('stammdaten', {}).get('kommission') or '')):
         s = a.get('stammdaten') or {}
         kommission = bestand.kommission(s.get('kommission'))
@@ -543,10 +574,14 @@ def main():
                 aehnlich = bestand.aehnliche_kommissionen(kommission)
                 grund = (f'Kunde „{s["kunde"].strip()}“ fehlt im Blatt „Kunden“ (dort anlegen, Name wie in der App)'
                          if str(s.get('kunde') or '').strip() else 'in der App ist kein Kunde eingetragen')
-                hinweis(f'Aggregat {kommission} („{s.get("bezeichnung") or "ohne Bezeichnung"}“) ist neu für Excel, '
-                        f'aber {grund} – nicht exportiert.'
-                        + (f' Ähnliche Kommissionen in Excel: {", ".join(aehnlich)} – falls es dieselbe Anlage ist, '
-                           f'die Kommission in der App angleichen.' if aehnlich else ''))
+                grund = (f'Neu für Excel, aber {grund}.'
+                         + (f' Ähnliche Kommissionen in Excel: {", ".join(aehnlich)}.' if aehnlich else ''))
+                offen_kommissionen[kommission] = grund
+                zeile = aggregat_zeile(a, kommission, ('?', ''))
+                zeile[2] = text(s.get('kunde'))
+                offen['tblAggregate'].append([grund, *zeile])
+                if zeile_t := technik_zeile(a, kommission):
+                    offen['tblTechnik'].append([grund, *zeile_t])
                 continue
             aggregate.append(aggregat_zeile(a, kommission, kunde))
             neue_kommissionen.add(kommission)
@@ -572,8 +607,8 @@ def main():
             continue
         gesehen.add((zeile[0], kommission))
         if kommission not in bestand.aggregate and kommission not in neue_kommissionen:
-            hinweis(f'Termin {zeile[0]} für {kommission}: Aggregat fehlt in Excel – Zeile trotzdem exportiert, '
-                    f'erst das Aggregat anlegen.')
+            offen['tblTermine'].append([offen_kommissionen.get(kommission, 'Aggregat fehlt in Excel.'), *zeile])
+            continue
         termine.append(zeile)
         namen += [n for n in zeile[4:7] if n and ',' not in n]
 
@@ -588,6 +623,18 @@ def main():
         pfad = schreibe(ordner, f'Import_{nr}_{blatt.replace(" ", "_")}_{heute}.txt', zeilen)
         if pfad:
             dateien.append((blatt, pfad, len(zeilen), excel_folge[0]))
+
+    if any(offen.values()):
+        pfad = ordner / f'Nicht_importiert_{heute}.xlsx'
+        blaetter = []
+        for t, zeilen in offen.items():
+            if zeilen:
+                blatt, soll = EINGABEBLOECKE[t]
+                folge = bestand.reihenfolge[t]
+                blaetter.append((blatt, ['Grund', *folge], [[z[0], *(z[1 + soll.index(sp)] for sp in folge)] for z in zeilen]))
+        schreibe_xlsx(pfad, blaetter)
+        hinweis(f'{len(offen_kommissionen)} Anlage(n) mit {len(offen["tblTermine"])} Termin(en) passen nicht automatisch '
+                f'nach Excel – alle Daten stehen in „{pfad.name}“ zum Eintragen von Hand (Spalte „Grund“ erklärt, warum).')
 
     (ordner / 'Anleitung.txt').write_text(ANLEITUNG.format(
         dateien=''.join(f'  {i}. {p.name}\n     → Blatt „{b}“, Spalte „{erste}“ ({n} Zeile{"" if n == 1 else "n"})\n'
