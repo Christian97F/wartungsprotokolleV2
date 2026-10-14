@@ -237,9 +237,10 @@ class Bestand:
     kunden: dict[str, str] = field(default_factory=dict)   # Name (klein) → Kunden-Nr
     mitarbeiter: set[str] = field(default_factory=set)
     termine: set[tuple[str, str]] = field(default_factory=set)  # (TT.MM.JJJJ, Kommission)
+    reihenfolge: dict[str, list[str]] = field(default_factory=dict)  # Tabelle → Eingabespalten in Excel-Reihenfolge
 
 
-# Eingabeblöcke laut PWA_Importformat.md, Abschnitt 6 (Reihenfolge = Feldreihenfolge der Importdateien)
+# Eingabespalten laut PWA_Importformat.md, Abschnitt 6. Geschrieben wird in der Reihenfolge der Excel-Mappe.
 EINGABEBLOECKE = {
     'tblTermine': ('Termine', [
         'Datum', 'Aggregat', 'Projekt-Nr', 'Status', 'Techniker 1', 'Techniker 2', 'Techniker 3',
@@ -270,7 +271,7 @@ def norm_kopf(t) -> str:
 
 
 def pruefe_block(tabelle: str, blatt: str, kopf: list[str], soll: list[str]) -> list[str]:
-    """Fehlertexte, wenn die Eingabespalten fehlen oder nicht lückenlos in Sollreihenfolge stehen."""
+    """Fehlertexte, wenn Eingabespalten fehlen oder fremde Spalten zwischen ihnen liegen (Reihenfolge ist egal)."""
     import difflib
     fehler = []
     ist = [norm_kopf(k) for k in kopf]
@@ -285,18 +286,15 @@ def pruefe_block(tabelle: str, blatt: str, kopf: list[str], soll: list[str]) -> 
         fehler.append(f'Spalte „{sp}“ kommt mehrfach vor')
     if fehlend or doppelt:
         return fehler
-    pos = [ist.index(sp) for sp in soll]
-    if pos != sorted(pos):
-        reihenfolge = [ist[i] for i in sorted(pos)]
-        fehler.append('Eingabespalten in falscher Reihenfolge.\n      Ist:  ' + ' | '.join(reihenfolge)
-                      + '\n      Soll: ' + ' | '.join(soll))
-        return fehler
+    pos = sorted(ist.index(sp) for sp in soll)
     im_block = [ist[i] for i in range(pos[0], pos[-1] + 1) if ist[i] not in soll]
     if im_block:
-        fehler.append('Spalten liegen innerhalb des Eingabeblocks und würden beim Einfügen überschrieben: '
-                      + ', '.join(f'„{sp}“' for sp in im_block)
-                      + f'.\n      Bitte in Excel (Blatt „{blatt}“) aus dem Block heraus an den Rand verschieben: '
-                        'Spaltenkopf markieren, Umschalttaste halten, Spalte an den Tabellenrand ziehen.')
+        fehler.append(
+            f'Diese Spalten liegen zwischen den Eingabespalten und würden beim Einfügen überschrieben: '
+            + ', '.join(f'„{sp}“' for sp in im_block)
+            + f'.\n      Lösung: In Excel im Blatt „{blatt}“ jede dieser Spalten ganz nach rechts verschieben, '
+              f'hinter „{ist[-1]}“\n      (Spaltenkopf anklicken, Umschalttaste gedrückt halten, am Rand der markierten '
+              'Spalte anfassen und ziehen). Die Formeln funktionieren danach unverändert weiter.')
     return fehler
 
 
@@ -346,6 +344,8 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
         return [z.get(name) for z in tabellen.get(tabelle, []) if z.get(name) not in (None, '')]
 
     b = Bestand()
+    for tabelle, (_, soll) in EINGABEBLOECKE.items():
+        b.reihenfolge[tabelle] = [k for k in koepfe[tabelle] if k in soll]
     b.aggregate = {str(k).strip() for k in spalte('tblAggregate', 'Kommission')}
     b.technik = {schluessel_aus_ref(a) for a in spalte('tblTechnik', 'Aggregat')}
     b.mitarbeiter = {str(n).strip() for n in spalte('tblMitarbeiter', 'Name')}
@@ -449,30 +449,20 @@ def schreibe(ordner: Path, name: str, zeilen: list[list[str]]) -> Path | None:
 ANLEITUNG = """ÜBERNAHME IN „Wartungsdaten.xlsx“
 ====================================
 
-Einmalig vorher (nur beim ersten Import):
-In den Blättern unten müssen die Eingabespalten direkt nebeneinander stehen. Graue Formelspalten,
-die dazwischen liegen, an den Rand schieben: Spaltenkopf anklicken, Umschalttaste gedrückt halten
-und die Spalte am Rand ganz nach rechts neben die Tabelle ziehen. Das ist gefahrlos.
-{formelspalten}
 Für jede Datei, in dieser Reihenfolge:
 {dateien}
 So wird eine Datei eingefügt:
   1. Die Datei mit dem Editor öffnen (Doppelklick).
   2. Strg+A (alles markieren), dann Strg+C (kopieren).
   3. In Excel das genannte Blatt öffnen.
-  4. In die erste leere Zeile direkt unter der Tabelle klicken, in die erste Spalte
-     der Eingabespalten (bei „Termine“ also in die Spalte „Datum“).
+  4. In die erste leere Zeile direkt unter der Tabelle klicken, und zwar in die oben
+     genannte Spalte.
+     Die Excel-Mappe danach nicht mehr umsortieren, sonst das Programm neu laufen lassen.
   5. Strg+V (einfügen). Die Tabelle wächst automatisch, Formelspalten füllen sich selbst.
   6. Kurz prüfen: stehen die Werte in den richtigen Spalten? Wenn nicht: Strg+Z und Schritt 4 prüfen.
 
 Jede Datei nur EIN Mal einfügen – Excel erkennt keine doppelten Zeilen.
 """
-
-FORMELSPALTEN = {
-    'Termine': 'Kommission, Bezeichnung, Kunde, Ort, ggf. Server-Link öffnen',
-    'Aggregate': 'Kunden-Nr, Server-Link öffnen, Auswahlname',
-    'Technische Daten': 'Kommission, Bezeichnung, Kunde, ggf. Server-Link öffnen',
-}
 
 
 def main():
@@ -540,16 +530,18 @@ def main():
     mitarbeiter = [[n] for n in dict.fromkeys(namen) if n not in bestand.mitarbeiter]
 
     dateien = []
-    for nr, (blatt, zeilen) in enumerate([('Mitarbeiter', mitarbeiter), ('Aggregate', aggregate),
-                                          ('Technische Daten', technik), ('Termine', termine)], 1):
+    for nr, (tabelle, zeilen) in enumerate([('tblMitarbeiter', mitarbeiter), ('tblAggregate', aggregate),
+                                            ('tblTechnik', technik), ('tblTermine', termine)], 1):
+        blatt, soll = EINGABEBLOECKE[tabelle]
+        excel_folge = bestand.reihenfolge[tabelle]
+        zeilen = [[z[soll.index(sp)] for sp in excel_folge] for z in zeilen]
         pfad = schreibe(ordner, f'Import_{nr}_{blatt.replace(" ", "_")}_{heute}.txt', zeilen)
         if pfad:
-            dateien.append((blatt, pfad, len(zeilen)))
+            dateien.append((blatt, pfad, len(zeilen), excel_folge[0]))
 
     (ordner / 'Anleitung.txt').write_text(ANLEITUNG.format(
-        formelspalten=''.join(f'  • {b}: {FORMELSPALTEN[b]}\n' for b, _, _ in dateien if b in FORMELSPALTEN),
-        dateien=''.join(f'  {i}. {p.name}  →  Blatt „{b}“ ({n} Zeile{"" if n == 1 else "n"})\n'
-                        for i, (b, p, n) in enumerate(dateien, 1)),
+        dateien=''.join(f'  {i}. {p.name}\n     → Blatt „{b}“, Spalte „{erste}“ ({n} Zeile{"" if n == 1 else "n"})\n'
+                        for i, (b, p, n, erste) in enumerate(dateien, 1)),
     ), encoding='utf-8-sig', newline='\r\n')
 
     hersteller = sorted({z[7] for z in aggregate if z[7]})
@@ -564,7 +556,7 @@ def main():
         (ordner / 'Hinweise.txt').write_text(''.join(f'- {h}\n' for h in hinweis.hinweise), encoding='utf-8-sig', newline='\r\n')
 
     print(f'Ausgabe: {ordner}')
-    for blatt, pfad, n in dateien:
+    for blatt, pfad, n, _ in dateien:
         print(f'  {pfad.name}: {n} Zeile{"" if n == 1 else "n"}')
     for h in hinweis.hinweise:
         print(f'  Hinweis: {h}')
