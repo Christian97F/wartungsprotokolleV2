@@ -5,6 +5,8 @@ Erzeugt je Zielblatt eine Tab-getrennte Textdatei nach „PWA_Importformat.md“
 die im Editor kopiert und in Excel unter die jeweilige Tabelle eingefügt wird.
 
 Aufruf (benötigt: pip install openpyxl):
+    python backup_zu_excel.py
+        nimmt die neueste Wartung_Backup*.json und Wartungsdaten*.xlsx aus dem aktuellen Ordner
     python backup_zu_excel.py Wartung_Backup_2026-10-14.json --excel Wartungsdaten.xlsx
 
 Vorher wird der Aufbau der Mappe geprüft (Tabellen, Spaltennamen, lückenlose Eingabeblöcke). Passt er nicht,
@@ -125,8 +127,31 @@ class Bericht:
         self.hinweise.append(meldung)
 
 
+def finde_datei(angabe: Path | None, muster: str, art: str, endung: str) -> Path:
+    """Angegebene Datei oder – ohne Angabe – die neueste passende im aktuellen bzw. Programmordner."""
+    ordner = list(dict.fromkeys([Path.cwd(), Path(__file__).resolve().parent]))
+    kandidaten = sorted({p.resolve() for o in ordner for p in o.glob(muster)}, key=lambda p: p.stat().st_mtime, reverse=True)
+    if angabe:
+        # Windows blendet Endungen oft aus: „Datei.json“ heißt dann evtl. „Datei.json.json“ oder ohne Endung
+        for versuch in (angabe, angabe.with_name(angabe.name + endung), angabe.with_suffix(endung)):
+            if versuch.is_file():
+                return versuch
+        liste = ''.join(f'\n    {k.name}' for k in kandidaten[:10]) or '\n    (keine)'
+        sys.exit(f'{art} „{angabe}“ nicht gefunden (gesucht in: {angabe.resolve().parent}).\n'
+                 f'  Passende Dateien ({muster}):{liste}\n'
+                 f'  Tipp: Dateinamen genau so angeben, wie er im Explorer steht, oder weglassen – '
+                 f'dann wird automatisch die neueste passende Datei genommen.')
+    if not kandidaten:
+        sys.exit(f'Keine {art} gefunden ({muster}) in: ' + ', '.join(str(o) for o in ordner))
+    print(f'{art}: {kandidaten[0].name}' + (f'  (neueste von {len(kandidaten)})' if len(kandidaten) > 1 else ''))
+    return kandidaten[0]
+
+
 def lade_sicherung(pfad: Path) -> dict:
-    daten = json.loads(pfad.read_text(encoding='utf-8-sig'))
+    try:
+        daten = json.loads(pfad.read_text(encoding='utf-8-sig'))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        sys.exit(f'„{pfad.name}“ ist keine lesbare JSON-Datei.')
     if daten.get('format') != 'wartungsprotokolle':
         sys.exit(f'„{pfad.name}“ ist keine Sicherung der Wartungs-App (Komplettsicherung aus „Daten“ verwenden).')
     return daten
@@ -280,8 +305,6 @@ def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
         from openpyxl import load_workbook
     except ImportError:
         sys.exit('Zum Lesen der Excel-Mappe wird openpyxl benötigt:  pip install openpyxl')
-    if not pfad.exists():
-        sys.exit(f'Excel-Mappe nicht gefunden: {pfad}')
     try:
         wb = load_workbook(pfad, data_only=True)
     except Exception as e:  # beschädigt, falsches Format, in Excel gesperrt …
@@ -454,16 +477,19 @@ FORMELSPALTEN = {
 
 def main():
     ap = argparse.ArgumentParser(description='Sicherung der Wartungs-App → Importdateien für Wartungsdaten.xlsx')
-    ap.add_argument('sicherung', type=Path, help='Komplettsicherung der App (Wartung_Backup_….json)')
-    ap.add_argument('--excel', type=Path, required=True, help='bestehende Wartungsdaten.xlsx (wird vorher geprüft)')
+    ap.add_argument('sicherung', type=Path, nargs='?',
+                    help='Komplettsicherung der App; ohne Angabe die neueste Wartung_Backup*.json im Ordner')
+    ap.add_argument('--excel', type=Path, help='Arbeitsmappe (wird vorher geprüft); ohne Angabe Wartungsdaten*.xlsx im Ordner')
     ap.add_argument('--ziel', type=Path, help='Ausgabeordner (Standard: neben der Sicherung)')
     args = ap.parse_args()
 
-    daten = lade_sicherung(args.sicherung)
+    sicherung = finde_datei(args.sicherung, 'Wartung_Backup*.json', 'Sicherung', '.json')
+    excel = finde_datei(args.excel, 'Wartungsdaten*.xlsx', 'Excel-Mappe', '.xlsx')
+    daten = lade_sicherung(sicherung)
     heute = date.today().isoformat()
-    ordner = args.ziel or args.sicherung.with_name(f'Excel-Import_{heute}')
+    ordner = args.ziel or sicherung.with_name(f'Excel-Import_{heute}')
     ordner.mkdir(parents=True, exist_ok=True)
-    bestand = lese_excel(args.excel, ordner / 'Strukturpruefung.txt')
+    bestand = lese_excel(excel, ordner / 'Strukturpruefung.txt')
     hinweis = Bericht()
 
     anlagen = {a['id']: a for a in daten.get('anlagen', [])}
