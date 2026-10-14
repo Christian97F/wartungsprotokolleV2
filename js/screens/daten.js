@@ -7,6 +7,7 @@ import { navigiere } from '../core/router.js';
 import { UNTERSCHRIFT_STANDARD } from '../core/model.js';
 import { bildVerkleinern } from '../core/bild.js';
 import { thema, setzeThema } from '../core/thema.js';
+import { appVersion, aktualisieren, updateBereit } from '../core/update.js';
 import { unterschriftFeld } from './unterschrift.js';
 import { ERINNERUNG_STANDARD, backupErinnerung, sicherungErstellen } from './erinnerung.js';
 import {
@@ -278,6 +279,13 @@ export async function render(el) {
               `<button type="button" class="seg" data-thema="${w}" aria-pressed="${thema() === w}">${l}</button>`).join('')}
           </div>
         </div>
+        <div class="feld">
+          <span class="feld-label">App-Version</span>
+          <div class="update-zeile">
+            <span id="app-version">…</span>
+            <button class="btn ${updateBereit() ? 'btn-primary' : 'btn-ghost'}" id="aktualisieren">${icon('import')}${updateBereit() ? 'Jetzt aktualisieren' : 'Nach Updates suchen'}</button>
+          </div>
+        </div>
         <p class="hinweis" id="speicher">Speicherbelegung wird ermittelt …</p>
         <div class="knopfreihe"><button class="btn btn-ghost" id="persist">${icon('schloss')}Dauerhafte Speicherung anfordern</button></div>
         <p class="hinweis">Alle Daten liegen lokal in diesem Browser (IndexedDB) und funktionieren offline. Beim Löschen der Browserdaten gehen sie verloren – regelmäßig sichern!</p>
@@ -357,6 +365,25 @@ export async function render(el) {
     setzeThema(b.dataset.thema);
     el.querySelectorAll('[data-thema]').forEach(x => x.setAttribute('aria-pressed', x === b));
   });
+  appVersion().then(v => { el.querySelector('#app-version').textContent = v || 'unbekannt'; });
+  const aktKnopf = el.querySelector('#aktualisieren');
+  aktKnopf.addEventListener('click', async () => {
+    aktKnopf.disabled = true;
+    aktKnopf.lastChild.textContent = 'Wird geprüft …';
+    try {
+      if (await aktualisieren() === 'aktuell') toast('Die App ist auf dem neuesten Stand', 'success');
+    } catch (err) {
+      toast(navigator.onLine ? `Update fehlgeschlagen: ${err.message}` : 'Keine Internetverbindung', 'error');
+    } finally {
+      aktKnopf.disabled = false;
+      aktKnopf.lastChild.textContent = updateBereit() ? 'Jetzt aktualisieren' : 'Nach Updates suchen';
+    }
+  });
+  const updateDa = () => {
+    aktKnopf.classList.replace('btn-ghost', 'btn-primary');
+    aktKnopf.lastChild.textContent = 'Jetzt aktualisieren';
+  };
+  document.addEventListener('update-bereit', updateDa);
   el.querySelector('#persist').addEventListener('click', async () => {
     const ok = await navigator.storage?.persist?.();
     toast(ok ? 'Daten werden dauerhaft gespeichert' : 'Der Browser hat die dauerhafte Speicherung nicht gewährt', ok ? 'success' : 'warning');
@@ -367,4 +394,5 @@ export async function render(el) {
     el.querySelector('#speicher').textContent =
       `Belegt: ${mb(s.usage)} MB von ${mb(s.quota)} MB · Speicherung ${dauerhaft ? 'dauerhaft' : 'nicht dauerhaft (Browser darf bei Platzmangel löschen)'}`;
   });
+  return () => document.removeEventListener('update-bereit', updateDa);
 }

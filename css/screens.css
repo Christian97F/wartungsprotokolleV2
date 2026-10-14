@@ -484,3 +484,6 @@ fieldset:disabled .foto-weg, fieldset:disabled .foto-neu { display: none; }
 
 /* Prüfpunkte in Anlagen übernehmen */
 .vt-liste { max-height: 30dvh; margin-bottom: var(--s-3); }
+
+/* App-Version / Update */
+.update-zeile { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; font-family: var(--font-mono); font-size: 13px; }

@@ -2,7 +2,7 @@
 // Strategie: Cache zuerst, im Hintergrund aktualisieren (stale-while-revalidate).
 // Bei jeder Änderung an den App-Dateien VERSION erhöhen.
 
-const VERSION = 'v2.11.0';
+const VERSION = 'v2.12.0';
 const CACHE = `wartung-${VERSION}`;
 const FONT_CACHE = 'wartung-fonts';
 
@@ -27,6 +27,7 @@ const ASSETS = [
   './js/core/migration.js',
   './js/core/model.js',
   './js/core/verteilen.js',
+  './js/core/update.js',
   './js/core/router.js',
   './js/core/shell.js',
   './js/core/thema.js',
@@ -77,6 +78,11 @@ self.addEventListener('activate', event => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== FONT_CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Versionsabfrage aus der App (Einstellungen)
+self.addEventListener('message', event => {
+  if (event.data === 'version') event.ports[0]?.postMessage(VERSION);
 });
 
 self.addEventListener('fetch', event => {

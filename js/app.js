@@ -3,6 +3,7 @@ import { icon } from './core/icons.js';
 import { toast } from './core/ui.js';
 import { migriereDatenbank } from './core/migration.js';
 import { themaEinrichten } from './core/thema.js';
+import { updatesEinrichten } from './core/update.js';
 
 const NAV = [
   { pfad: '/anlagen', label: 'Anlagen', icon: 'anlage', muster: ['/anlagen', '/anlage/:id'] },
@@ -72,19 +73,7 @@ async function start() {
     return m.taeglicheErinnerung();
   }).catch(e => console.warn('Erinnerung:', e));
 
-  if ('serviceWorker' in navigator) {
-    const hatteVersion = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      reg.addEventListener('updatefound', () => {
-        const neu = reg.installing;
-        neu?.addEventListener('statechange', () => {
-          if (neu.state === 'activated' && hatteVersion) {
-            toast('Update installiert – wird beim nächsten Start aktiv', 'info', 5000);
-          }
-        });
-      });
-    }).catch(err => console.warn('Service Worker:', err));
-  }
+  updatesEinrichten();
 }
 
 start();
