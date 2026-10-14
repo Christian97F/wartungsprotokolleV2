@@ -4,13 +4,13 @@
 Erzeugt je Zielblatt eine Tab-getrennte Textdatei nach „PWA_Importformat.md“ (Stand 14.10.2026),
 die im Editor kopiert und in Excel unter die jeweilige Tabelle eingefügt wird.
 
-Aufruf:
-    python backup_zu_excel.py Wartung_Backup_2026-10-14.json
+Aufruf (benötigt: pip install openpyxl):
     python backup_zu_excel.py Wartung_Backup_2026-10-14.json --excel Wartungsdaten.xlsx
 
-Mit --excel (benötigt: pip install openpyxl) wird die bestehende Mappe gelesen:
-- Termine, Mitarbeiter und Technische Daten, die es dort schon gibt, werden nicht erneut ausgegeben.
-- Neue Aggregate werden nur damit exportiert, weil die Kunden-Nr aus dem Blatt „Kunden“ stammt.
+Vorher wird der Aufbau der Mappe geprüft (Tabellen, Spaltennamen, lückenlose Eingabeblöcke). Passt er nicht,
+bricht das Programm ohne Ausgabe ab und schreibt einen Bericht nach „Strukturpruefung.txt“.
+Danach wird abgeglichen: Termine, Mitarbeiter und Technische Daten, die es schon gibt, werden nicht erneut
+ausgegeben; die Kunden-Nr neuer Aggregate stammt aus dem Blatt „Kunden“.
 """
 from __future__ import annotations
 
@@ -212,42 +212,132 @@ class Bestand:
     kunden: dict[str, str] = field(default_factory=dict)   # Name (klein) → Kunden-Nr
     mitarbeiter: set[str] = field(default_factory=set)
     termine: set[tuple[str, str]] = field(default_factory=set)  # (TT.MM.JJJJ, Kommission)
-    gelesen: bool = False
 
 
-def lese_excel(pfad: Path) -> Bestand:
+# Eingabeblöcke laut PWA_Importformat.md, Abschnitt 6 (Reihenfolge = Feldreihenfolge der Importdateien)
+EINGABEBLOECKE = {
+    'tblTermine': ('Termine', [
+        'Datum', 'Aggregat', 'Projekt-Nr', 'Status', 'Techniker 1', 'Techniker 2', 'Techniker 3',
+        'Elektr. Wartung', 'Motorwartung', 'Ölwechsel', 'DGUV', 'Kühlmittel intern', 'Kühlmittel extern',
+        'Luftfilter', 'Zahnriemen', 'Offene Arbeiten', 'Betriebsstunden', 'Startzahl', 'Bemerkung']),
+    'tblAggregate': ('Aggregate', [
+        'Kommission', 'Bezeichnung', 'Kunde', 'Standort', 'Straße', 'PLZ', 'Ort', 'Hersteller', 'Typ', 'Serien-Nr',
+        'Leistung (kVA)', 'Motortyp', 'Motor-Nr', 'Kühlmittel intern Menge', 'Kühlmittel intern Sorte',
+        'Kühlmittel extern Menge', 'Kühlmittel extern Sorte', 'Intervall Elektr. Wartung (Monate)',
+        'Intervall Motorwartung (Monate)', 'Intervall Ölwechsel (Monate)', 'Intervall DGUV (Monate)',
+        'Intervall Kühlmittel intern (Monate)', 'Intervall Kühlmittel extern (Monate)', 'Intervall Luftfilter (Monate)',
+        'Wartungsvertrag', 'Vertrags-Nr', 'Wartungspauschale', 'Server-Link', 'Bemerkung']),
+    'tblTechnik': ('Technische Daten', [
+        'Aggregat', 'Generator Hersteller', 'Generator Typ', 'Generator Serien-Nr', 'Generator Regler Typ',
+        'Motorregler Hersteller', 'Motorregler Typ', 'NSA Hersteller', 'NSA Typ', 'NSA Serien-Nr',
+        'Ladegerät 1 Hersteller', 'Ladegerät 1 Typ', 'Ladegerät 2 Hersteller', 'Ladegerät 2 Typ',
+        'Starterbatterie Hersteller', 'Starterbatterie Typ', 'Starterbatterie Anzahl', 'Starterbatterie Spannung (V)',
+        'Starterbatterie Kapazität (Ah)', 'Starterbatterie wartungsfrei', 'Steuerbatterie Hersteller',
+        'Steuerbatterie Typ', 'Steuerbatterie Anzahl', 'Steuerbatterie Spannung (V)', 'Steuerbatterie Kapazität (Ah)',
+        'Steuerbatterie wartungsfrei']),
+    'tblKunden': ('Kunden', ['Kunden-Nr', 'Name']),
+    'tblMitarbeiter': ('Mitarbeiter', ['Name']),
+}
+
+
+def norm_kopf(t) -> str:
+    return ' '.join(str(t or '').replace('\xa0', ' ').split())
+
+
+def pruefe_block(tabelle: str, blatt: str, kopf: list[str], soll: list[str]) -> list[str]:
+    """Fehlertexte, wenn die Eingabespalten fehlen oder nicht lückenlos in Sollreihenfolge stehen."""
+    import difflib
+    fehler = []
+    ist = [norm_kopf(k) for k in kopf]
+    fehlend = [sp for sp in soll if sp not in ist]
+    if fehlend:
+        def mit_vorschlag(sp):
+            aehnlich = difflib.get_close_matches(sp, [k for k in ist if k not in soll], n=1, cutoff=0.6)
+            return f'„{sp}“' + (f' (vorhanden ist „{aehnlich[0]}“)' if aehnlich else '')
+        fehler.append(f'{len(fehlend)} von {len(soll)} Eingabespalten fehlen: ' + ', '.join(map(mit_vorschlag, fehlend)))
+    doppelt = sorted({sp for sp in soll if ist.count(sp) > 1})
+    for sp in doppelt:
+        fehler.append(f'Spalte „{sp}“ kommt mehrfach vor')
+    if fehlend or doppelt:
+        return fehler
+    pos = [ist.index(sp) for sp in soll]
+    if pos != sorted(pos):
+        reihenfolge = [ist[i] for i in sorted(pos)]
+        fehler.append('Eingabespalten in falscher Reihenfolge.\n      Ist:  ' + ' | '.join(reihenfolge)
+                      + '\n      Soll: ' + ' | '.join(soll))
+        return fehler
+    im_block = [ist[i] for i in range(pos[0], pos[-1] + 1) if ist[i] not in soll]
+    if im_block:
+        fehler.append('Spalten liegen innerhalb des Eingabeblocks und würden beim Einfügen überschrieben: '
+                      + ', '.join(f'„{sp}“' for sp in im_block)
+                      + f'.\n      Bitte in Excel (Blatt „{blatt}“) aus dem Block heraus an den Rand verschieben: '
+                        'Spaltenkopf markieren, Umschalttaste halten, Spalte an den Tabellenrand ziehen.')
+    return fehler
+
+
+def lese_excel(pfad: Path, protokoll: Path) -> Bestand:
     try:
         from openpyxl import load_workbook
     except ImportError:
         sys.exit('Zum Lesen der Excel-Mappe wird openpyxl benötigt:  pip install openpyxl')
-    wb = load_workbook(pfad, data_only=True, read_only=False)
-    tabellen = {}
+    if not pfad.exists():
+        sys.exit(f'Excel-Mappe nicht gefunden: {pfad}')
+    try:
+        wb = load_workbook(pfad, data_only=True)
+    except Exception as e:  # beschädigt, falsches Format, in Excel gesperrt …
+        sys.exit(f'Excel-Mappe „{pfad.name}“ kann nicht gelesen werden: {e}')
+
+    tabellen, koepfe, fundorte = {}, {}, {}
     for ws in wb.worksheets:
         for tbl in ws.tables.values():
-            name = tbl.displayName
             zeilen = list(ws[tbl.ref])
-            kopf = [str(z.value or '').strip() for z in zeilen[0]]
-            tabellen[name] = [dict(zip(kopf, (z.value for z in zeile))) for zeile in zeilen[1:]]
+            kopf = [norm_kopf(z.value) for z in zeilen[0]]
+            koepfe[tbl.displayName] = kopf
+            fundorte[tbl.displayName] = f'Blatt „{ws.title}“, Bereich {tbl.ref}'
+            tabellen[tbl.displayName] = [dict(zip(kopf, (z.value for z in zeile))) for zeile in zeilen[1:]]
+
+    fehler = []
+    for tabelle, (blatt, soll) in EINGABEBLOECKE.items():
+        if tabelle not in koepfe:
+            fehler.append(f'[{blatt}] Tabelle „{tabelle}“ nicht gefunden.')
+            continue
+        fehler += [f'[{blatt}] {f}' for f in pruefe_block(tabelle, blatt, koepfe[tabelle], soll)]
+
+    diagnose = [f'Excel-Mappe: {pfad.resolve()}', '', 'Gefundene Blätter: ' + ', '.join(ws.title for ws in wb.worksheets), '']
+    diagnose += ['Gefundene Tabellen und Spaltenköpfe:']
+    for name, kopf in koepfe.items():
+        diagnose.append(f'  {name}  ({fundorte[name]}, {len(tabellen[name])} Zeilen)')
+        diagnose += [f'    {i:>2}. {k or "(leer)"}' for i, k in enumerate(kopf, 1)]
+    if fehler:
+        text_ = '\n'.join(['STRUKTURPRÜFUNG FEHLGESCHLAGEN – es wurden keine Importdateien erzeugt.', '',
+                            'Probleme:', *[f'  - {f}' for f in fehler], '',
+                            'Ist der Aufbau der Mappe so gewollt, diesen Bericht an den Entwickler schicken,',
+                            'damit das Programm angepasst wird. Die Mappe wurde nicht verändert.', '',
+                            *diagnose, ''])
+        protokoll.write_text(text_, encoding='utf-8-sig', newline='\r\n')
+        print(text_)
+        sys.exit(f'Abgebrochen. Vollständiger Bericht: {protokoll}')
+    print(f'Strukturprüfung bestanden ({len(EINGABEBLOECKE)} Tabellen).')
 
     def spalte(tabelle, name):
         return [z.get(name) for z in tabellen.get(tabelle, []) if z.get(name) not in (None, '')]
 
-    b = Bestand(gelesen=True)
+    b = Bestand()
     b.aggregate = {str(k).strip() for k in spalte('tblAggregate', 'Kommission')}
     b.technik = {schluessel_aus_ref(a) for a in spalte('tblTechnik', 'Aggregat')}
     b.mitarbeiter = {str(n).strip() for n in spalte('tblMitarbeiter', 'Name')}
-    for z in tabellen.get('tblKunden', []):
+    for z in tabellen['tblKunden']:
         if z.get('Kunden-Nr') not in (None, '') and z.get('Name'):
-            b.kunden[str(z['Name']).strip().lower()] = str(round(float(z['Kunden-Nr'])))
-    for z in tabellen.get('tblTermine', []):
+            try:
+                b.kunden[str(z['Name']).strip().lower()] = str(round(float(z['Kunden-Nr'])))
+            except (TypeError, ValueError):
+                print(f'Achtung: Kunden-Nr „{z["Kunden-Nr"]}“ bei „{z["Name"]}“ ist keine Zahl – ignoriert.')
+    for z in tabellen['tblTermine']:
         d = z.get('Datum')
         d = d.strftime('%d.%m.%Y') if isinstance(d, (datetime, date)) else str(d or '').strip()
-        kommission = schluessel_aus_ref(z.get('Aggregat')) or str(z.get('Kommission') or '').strip()
+        kommission = schluessel_aus_ref(z.get('Aggregat'))
         if d and kommission:
             b.termine.add((d, kommission))
-    fehlend = [t for t in ('tblAggregate', 'tblKunden', 'tblTermine', 'tblMitarbeiter', 'tblTechnik') if t not in tabellen]
-    if fehlend:
-        print(f'Achtung: Tabellen nicht gefunden: {", ".join(fehlend)}')
     return b
 
 
@@ -365,15 +455,15 @@ FORMELSPALTEN = {
 def main():
     ap = argparse.ArgumentParser(description='Sicherung der Wartungs-App → Importdateien für Wartungsdaten.xlsx')
     ap.add_argument('sicherung', type=Path, help='Komplettsicherung der App (Wartung_Backup_….json)')
-    ap.add_argument('--excel', type=Path, help='bestehende Wartungsdaten.xlsx zum Abgleich (empfohlen)')
+    ap.add_argument('--excel', type=Path, required=True, help='bestehende Wartungsdaten.xlsx (wird vorher geprüft)')
     ap.add_argument('--ziel', type=Path, help='Ausgabeordner (Standard: neben der Sicherung)')
     args = ap.parse_args()
 
     daten = lade_sicherung(args.sicherung)
-    bestand = lese_excel(args.excel) if args.excel else Bestand()
     heute = date.today().isoformat()
     ordner = args.ziel or args.sicherung.with_name(f'Excel-Import_{heute}')
     ordner.mkdir(parents=True, exist_ok=True)
+    bestand = lese_excel(args.excel, ordner / 'Strukturpruefung.txt')
     hinweis = Bericht()
 
     anlagen = {a['id']: a for a in daten.get('anlagen', [])}
@@ -385,8 +475,6 @@ def main():
         s = a.get('stammdaten') or {}
         kommission = str(s.get('kommission') or '').strip()
         if not kommission:
-            continue
-        if not bestand.gelesen:
             continue
         if kommission not in bestand.aggregate:
             nr = bestand.kunden.get(str(s.get('kunde') or '').strip().lower())
@@ -417,7 +505,7 @@ def main():
             hinweis(f'Mehrere Protokolle am {zeile[0]} für {kommission} – nur das erste exportiert.')
             continue
         gesehen.add((zeile[0], kommission))
-        if bestand.gelesen and kommission not in bestand.aggregate and kommission not in neue_kommissionen:
+        if kommission not in bestand.aggregate and kommission not in neue_kommissionen:
             hinweis(f'Termin {zeile[0]} für {kommission}: Aggregat fehlt in Excel – Zeile trotzdem exportiert, '
                     f'erst das Aggregat anlegen.')
         termine.append(zeile)
@@ -442,9 +530,6 @@ def main():
     if hersteller:
         hinweis(f'Hersteller müssen im Blatt „Listen“ unter „Aggregathersteller“ stehen (sonst dort ergänzen): '
                 f'{", ".join(hersteller)}')
-    if not bestand.gelesen:
-        hinweis('Ohne --excel: keine Aggregate/Technischen Daten exportiert (Kunden-Nr unbekannt) und '
-                'kein Abgleich mit vorhandenen Terminen und Mitarbeitern.')
     if entwuerfe:
         hinweis(f'{entwuerfe} nicht abgeschlossene Protokolle (Entwürfe) übersprungen.')
     if doppelt:
